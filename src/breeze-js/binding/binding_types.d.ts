@@ -11,6 +11,63 @@ export class filesystem {
      */
     static readFileSync(path: string): string
 }
+export class infra {
+	/**
+     * 
+     * @param ms: number
+     * @returns Promise<void>
+     */
+    static sleep(ms: number): Promise<void>
+	/**
+     *  This is a blocking sleep, not recommended in JS context
+     *  Use sleep() instead for non-blocking sleep
+     * @param ms: number
+     * @returns void
+     */
+    static sleepSync(ms: number): void
+	/**
+     *  Breeze uses a low resolution timer (30ms) for setTimeout and setInterval
+     *  due to performance concerns.
+     *  Use sleep() for more precise timing if needed.
+     * @param callback: (() => void)
+     * @param ms: number
+     * @returns number
+     */
+    static setTimeout(callback: (() => void), ms: number): number
+	/**
+     *  Breeze uses a low resolution timer (30ms) for setTimeout and setInterval
+     *  due to performance concerns.
+     *  Use sleep() for more precise timing if needed.
+     * @param callback: (() => void)
+     * @param ms: number
+     * @returns number
+     */
+    static setInterval(callback: (() => void), ms: number): number
+	/**
+     * 
+     * @param id: number
+     * @returns void
+     */
+    static clearTimeout(id: number): void
+	/**
+     * 
+     * @param id: number
+     * @returns void
+     */
+    static clearInterval(id: number): void
+	/**
+     * 
+     * @param base64: string
+     * @returns string
+     */
+    static atob(base64: string): string
+	/**
+     * 
+     * @param str: string
+     * @returns string
+     */
+    static btoa(str: string): string
+}
 export class test {
 	static testAsync(): Promise<number>
 }

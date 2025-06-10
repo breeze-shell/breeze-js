@@ -33,6 +33,35 @@ template<> struct js_bind<breeze::js::filesystem> {
     }
 };
 
+template <> struct qjs::js_traits<breeze::js::infra> {
+    static breeze::js::infra unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::infra obj;
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::infra &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::infra> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::infra>("infra")
+            .constructor<>()
+                .static_fun<&breeze::js::infra::sleep>("sleep")
+                .static_fun<&breeze::js::infra::sleepSync>("sleepSync")
+                .static_fun<&breeze::js::infra::setTimeout>("setTimeout")
+                .static_fun<&breeze::js::infra::setInterval>("setInterval")
+                .static_fun<&breeze::js::infra::clearTimeout>("clearTimeout")
+                .static_fun<&breeze::js::infra::clearInterval>("clearInterval")
+                .static_fun<&breeze::js::infra::atob>("atob")
+                .static_fun<&breeze::js::infra::btoa>("btoa")
+            ;
+    }
+};
+
 template <> struct qjs::js_traits<breeze::js::test> {
     static breeze::js::test unwrap(JSContext *ctx, JSValueConst v) {
         breeze::js::test obj;
@@ -58,6 +87,8 @@ template<> struct js_bind<breeze::js::test> {
 inline void bindAll(qjs::Context::Module &mod) {
 
     js_bind<breeze::js::filesystem>::bind(mod);
+
+    js_bind<breeze::js::infra>::bind(mod);
 
     js_bind<breeze::js::test>::bind(mod);
 

@@ -1,0 +1,18 @@
+{
+  "name": "breeze-js-unit-tests",
+  "packageManager": "yarn@1.22.19",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "MicroBlock <66859419+std-microblock@users.noreply.github.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@types/chai": "^5.2.2",
+    "chai": "^5.2.0",
+    "esbuild": "^0.25.5"
+  },
+  "scripts": {
+    "build": "esbuild index.ts --external:breeze --bundle --outfile=index.js --platform=browser --format=esm --target=esnext",
+    "test": "yarn build && powershell /Command xmake r breeze-js-cli --file $PWD/index.js"
+  },
+  "devDependencies": {}
+}

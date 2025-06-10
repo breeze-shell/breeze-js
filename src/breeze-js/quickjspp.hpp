@@ -2378,10 +2378,10 @@ template <typename T> struct js_traits<async_simple::coro::Lazy<T>> {
     JS_SetPropertyStr(ctx, obj_holder, "__promise", promise);
 
     lazy_ptr->lazy.start([ctx, resolving_funcs](
-                             async_simple::Try<int> &&result) mutable {
+                             async_simple::Try<T> &&result) mutable {
       if (ctx) {
         Context &context = Context::get(ctx);
-        context.enqueueJob([=, result = std::move(result)]() {
+        context.enqueueJob([=, result = std::move(result)]() mutable {
           if (result.hasError()) {
             try {
               std::rethrow_exception(result.getException());
@@ -2394,9 +2394,14 @@ template <typename T> struct js_traits<async_simple::coro::Lazy<T>> {
               JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, &error_value);
             }
           } else {
-            JSValue resolved_value = js_traits<T>::wrap(ctx, result.value());
-            JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 1, &resolved_value);
-            JS_FreeValue(ctx, resolved_value);
+            if constexpr (std::is_void_v<T>) {
+              // If T is void, we resolve the promise without a value
+              JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 0, nullptr);
+            } else {
+              JSValue resolved_value = js_traits<T>::wrap(ctx, result.value());
+              JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 1, &resolved_value);
+              JS_FreeValue(ctx, resolved_value);
+            }
           }
 
           JS_FreeValue(ctx, resolving_funcs[0]);
