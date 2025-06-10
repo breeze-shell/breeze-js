@@ -6,6 +6,13 @@ set_warnings("all")
 add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
 
+add_requires("cxxopts")
+add_requires("yalantinglibs", {
+    configs = {
+        ssl = true
+    }
+})
+
 set_runtimes("MT")
 
 target("breeze-quickjs-ng")
@@ -21,13 +28,15 @@ target("breeze-quickjs-ng")
 target("breeze-js-runtime")
     set_kind("static")
     add_deps("breeze-quickjs-ng")
-    add_files("src/breeze-js/*.cc")
+    add_packages("yalantinglibs", { public = true })
+    add_files("src/breeze-js/*.cc", "src/breeze-js/**/*.cc")
     add_headerfiles("src/breeze-js/*.h")
     add_includedirs("src/breeze-js", {public = true})
 
 target("breeze-js-cli")
     set_kind("binary")
     add_deps("breeze-js-runtime")
+    add_packages("cxxopts")
     add_files("src/breeze-js-cli/*.cc")
     
     if is_plat("windows") then

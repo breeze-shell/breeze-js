@@ -1,5 +1,8 @@
 #pragma once
 
+#include "async_simple/Try.h"
+
+#include "cinatra/ylt/coro_io/io_context_pool.hpp"
 #include "quickjs.h"
 
 #include <algorithm>
@@ -28,9 +31,16 @@
 #include <variant>
 #include <vector>
 
+#define ASYNC_SUPPORT
+#ifdef ASYNC_SUPPORT
+#include "async_simple/coro/Lazy.h"
+#endif
+
 #define NOMINMAX
 #include "Windows.h"
+namespace breeze {
 extern thread_local bool is_thread_js_main;
+}
 #if defined(__cpp_rtti)
 #define QJSPP_TYPENAME(...) (typeid(__VA_ARGS__).name())
 #else
@@ -1950,7 +1960,7 @@ struct js_traits<std::function<R(Args...)>, int> {
               std::make_exception_ptr(exception{jsfun_obj.ctx}));
       };
 
-      if (!is_thread_js_main) {
+      if (!breeze::is_thread_js_main) {
         ctx.enqueueJob(work);
       } else {
         work();
@@ -2317,4 +2327,88 @@ inline JSContext *getContextFromWrapped(Context *ctx) { return ctx->ctx; }
 inline std::weak_ptr<Context> weakFromContext(JSContext *ctx) {
   return Context::get(ctx).weak_from_this();
 }
+
+#ifdef ASYNC_SUPPORT
+template <typename T> struct LazyWrapper {
+  async_simple::coro::RescheduleLazy<T> lazy;
+};
+
+template <typename T> struct js_traits<async_simple::coro::Lazy<T>> {
+  static JSValue wrap(JSContext *ctx, async_simple::coro::Lazy<T> &&value) {
+    static JSClassID classId;
+    auto rt = JS_GetRuntime(ctx);
+    if (!JS_IsRegisteredClass(rt, classId)) {
+      JS_NewClassID(rt, &classId);
+      auto name = std::format("Lazy<{}>", QJSPP_TYPENAME(T));
+      JSClassDef def{name.c_str(), +[](JSRuntime *rt, JSValue obj) {
+                       // Destructor for Lazy<T>
+                       auto *lazy_ptr = static_cast<LazyWrapper<T> *>(
+                           JS_GetOpaque(obj, classId));
+                       if (lazy_ptr) {
+                         delete lazy_ptr; // Clean up the Lazy object
+                       }
+                     }};
+
+      if (JS_NewClass(rt, classId, &def) < 0) {
+        return JS_EXCEPTION;
+      }
+
+      auto lazy_proto = JS_NewObject(ctx);
+      if (JS_IsException(lazy_proto)) {
+        return JS_EXCEPTION;
+      }
+
+      JS_SetClassProto(ctx, classId, lazy_proto);
+      JS_SetPropertyStr(ctx, lazy_proto, "className",
+                        JS_NewString(ctx, name.c_str()));
+    }
+
+    JSValue obj_holder = JS_NewObjectClass(ctx, classId);
+    if (JS_IsException(obj_holder)) {
+      return JS_EXCEPTION;
+    }
+
+    auto *lazy_ptr =
+        new LazyWrapper{std::move(value).via(coro_io::get_global_executor())};
+
+    JS_SetOpaque(obj_holder, lazy_ptr);
+    JSValue resolving_funcs[2];
+    JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
+    JS_SetPropertyStr(ctx, promise, "__lazy", obj_holder);
+    JS_SetPropertyStr(ctx, obj_holder, "__promise", promise);
+
+    lazy_ptr->lazy.start([ctx, resolving_funcs](
+                             async_simple::Try<int> &&result) mutable {
+      if (ctx) {
+        Context &context = Context::get(ctx);
+        context.enqueueJob([=, result = std::move(result)]() {
+          if (result.hasError()) {
+            try {
+              std::rethrow_exception(result.getException());
+            } catch (const std::exception &e) {
+              JSValue error_value = JS_NewString(ctx, e.what());
+
+              JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, &error_value);
+            } catch (...) {
+              JSValue error_value = JS_NewString(ctx, "Unknown error");
+              JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, &error_value);
+            }
+          } else {
+            JSValue resolved_value = js_traits<T>::wrap(ctx, result.value());
+            JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 1, &resolved_value);
+            JS_FreeValue(ctx, resolved_value);
+          }
+
+          JS_FreeValue(ctx, resolving_funcs[0]);
+          // ↓ This crashes QuickJS, why??
+          // JS_FreeValue(ctx, resolving_funcs[1]);
+        });
+      }
+    });
+
+    return promise;
+  }
+};
+#endif
+
 } // namespace qjs

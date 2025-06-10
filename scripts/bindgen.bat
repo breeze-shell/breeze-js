@@ -1,0 +1,1 @@
+npx breeze-bindgen@latest -i .\src\breeze-js\binding\binding_types.h -o .\src\breeze-js\binding --tsModuleName breeze
