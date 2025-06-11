@@ -60,18 +60,6 @@ void println(qjs::rest<std::string> args) {
                 nullptr);
 }
 
-
-
-template <typename T>
-void bindAsync(qjs::Context::Module &mod) {
-  mod.class_<async_simple::coro::Lazy<int>>("Lazy_int")
-    .template constructor<>()
-    .fun("then", [](async_simple::coro::Lazy<T> &lazy,
-                             std::function<void(T)> callback) {
-      
-    });
-}
-
 void script_context::bind() {
   auto &module = js->addModule("breeze");
 

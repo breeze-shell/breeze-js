@@ -19,31 +19,31 @@ export class filesystem {
 	/**
      * 
      * @param path: string
-     * @param options: filesystem.ReadDirOptions
+     * @param options: filesystem.ReadDirOptions | undefined
      * @returns Promise<Array<string>>
      */
-    static readdir(path: string, options: filesystem.ReadDirOptions): Promise<Array<string>>
+    static readdir(path: string, options: filesystem.ReadDirOptions | undefined): Promise<Array<string>>
 	/**
      * 
      * @param path: string
-     * @param options: filesystem.ReadDirOptions
+     * @param options: filesystem.ReadDirOptions | undefined
      * @returns Array<string>
      */
-    static readdirSync(path: string, options: filesystem.ReadDirOptions): Array<string>
+    static readdirSync(path: string, options: filesystem.ReadDirOptions | undefined): Array<string>
 	/**
      * 
      * @param path: string
-     * @param options: filesystem.MkDirOptions
+     * @param options: filesystem.MkDirOptions | undefined
      * @returns Promise<boolean>
      */
-    static mkdir(path: string, options: filesystem.MkDirOptions): Promise<boolean>
+    static mkdir(path: string, options: filesystem.MkDirOptions | undefined): Promise<boolean>
 	/**
      * 
      * @param path: string
-     * @param options: filesystem.MkDirOptions
+     * @param options: filesystem.MkDirOptions | undefined
      * @returns boolean
      */
-    static mkdirSync(path: string, options: filesystem.MkDirOptions): boolean
+    static mkdirSync(path: string, options: filesystem.MkDirOptions | undefined): boolean
 	/**
      * 
      * @param path: string
@@ -53,17 +53,17 @@ export class filesystem {
 	/**
      * 
      * @param path: string
-     * @param options: filesystem.RmOptions
+     * @param options: filesystem.RmOptions | undefined
      * @returns Promise<boolean>
      */
-    static rm(path: string, options: filesystem.RmOptions): Promise<boolean>
+    static rm(path: string, options: filesystem.RmOptions | undefined): Promise<boolean>
 	/**
      * 
      * @param path: string
-     * @param options: filesystem.RmOptions
+     * @param options: filesystem.RmOptions | undefined
      * @returns boolean
      */
-    static rmSync(path: string, options: filesystem.RmOptions): boolean
+    static rmSync(path: string, options: filesystem.RmOptions | undefined): boolean
 	/**
      * 
      * @param path: string

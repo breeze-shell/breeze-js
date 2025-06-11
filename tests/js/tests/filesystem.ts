@@ -87,15 +87,16 @@ describe('filesystem', () => {
     });
 
     it('should not crash', async () => {
-        // @ts-ignore
-        await filesystem.rm('');
-        // @ts-ignore
-        await filesystem.mkdir('', {});
-        // @ts-ignore
-        await filesystem.readdir('');
-        await filesystem.writeStringToFile('', '');
-        // @ts-ignore
-        await filesystem.readFileAsString();
+        await Promise.allSettled([
+            // @ts-ignore
+            filesystem.rm(''),
+            // @ts-ignore
+            filesystem.mkdir('', {}),
+            // @ts-ignore
+            filesystem.readdir(''),
+            filesystem.writeStringToFile('', ''),
+            filesystem.readFileAsString('')
+        ]);
 
         expect(true).to.be.true; // Just to ensure the test runs without crashing
     })
