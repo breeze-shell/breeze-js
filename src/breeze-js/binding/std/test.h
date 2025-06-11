@@ -1,7 +1,5 @@
 #pragma once
-namespace async_simple::coro {
-template <typename T> class Lazy;
-}
+#include "../binding_helpers.h"
 
 namespace breeze::js {
 struct test {

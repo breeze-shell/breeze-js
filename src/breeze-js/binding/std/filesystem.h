@@ -1,10 +1,5 @@
 #pragma once
-#include <string>
-#include <vector>
-
-namespace async_simple::coro {
-template <typename T> class Lazy;
-}
+#include "../binding_helpers.h"
 
 namespace breeze::js {
 struct filesystem {
@@ -18,22 +13,19 @@ struct filesystem {
   };
 
   static async_simple::coro::Lazy<std::vector<std::string>>
-  readdir(std::string path, ReadDirOptions options = {.recursive = false,
-                                                      .follow_symlinks = true});
+  readdir(std::string path, std::optional<ReadDirOptions> options);
 
-  static std::vector<std::string> readdirSync(
-      std::string path,
-      ReadDirOptions options = {.recursive = false, .follow_symlinks = true});
+  static std::vector<std::string>
+  readdirSync(std::string path, std::optional<ReadDirOptions> options);
 
   struct MkDirOptions {
     bool recursive;
   };
 
   static async_simple::coro::Lazy<bool>
-  mkdir(std::string path, MkDirOptions options = {.recursive = false});
+  mkdir(std::string path, std::optional<MkDirOptions> options);
 
-  static bool mkdirSync(std::string path,
-                        MkDirOptions options = {.recursive = false});
+  static bool mkdirSync(std::string path, std::optional<MkDirOptions> options);
 
   static bool exists(std::string path);
 
@@ -41,12 +33,12 @@ struct filesystem {
     bool recursive;
   };
 
-  static async_simple::coro::Lazy<bool>
-  rm(std::string path, RmOptions options = {.recursive = false});
+  static async_simple::coro::Lazy<bool> rm(std::string path,
+                                           std::optional<RmOptions> options);
 
-  static bool rmSync(std::string path,
-                     RmOptions options = {.recursive = false});
+  static bool rmSync(std::string path, std::optional<RmOptions> options);
 
-  static async_simple::coro::Lazy<bool> writeStringToFile(std::string path, std::string content);
+  static async_simple::coro::Lazy<bool> writeStringToFile(std::string path,
+                                                          std::string content);
 };
 } // namespace breeze::js

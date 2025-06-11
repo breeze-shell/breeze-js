@@ -45,15 +45,18 @@ filesystem::readFileAsString(std::string path) {
 
   co_return content;
 }
-std::vector<std::string> filesystem::readdirSync(std::string path,
-                                                 ReadDirOptions options) {
+std::vector<std::string>
+filesystem::readdirSync(std::string path,
+                        std::optional<ReadDirOptions> options) {
+  setDefault(options, {.recursive = false, .follow_symlinks = true});
+
   std::vector<std::string> result;
   try {
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
-      if (options.follow_symlinks || !std::filesystem::is_symlink(entry)) {
+      if (options->follow_symlinks || !std::filesystem::is_symlink(entry)) {
         result.push_back(entry.path().filename().string());
       }
-      if (options.recursive && entry.is_directory()) {
+      if (options->recursive && entry.is_directory()) {
         auto sub_entries = readdirSync(entry.path().string(), options);
         result.insert(result.end(), sub_entries.begin(), sub_entries.end());
       }
@@ -64,17 +67,22 @@ std::vector<std::string> filesystem::readdirSync(std::string path,
   }
   return result;
 }
+
 async_simple::coro::Lazy<std::vector<std::string>>
-filesystem::readdir(std::string path, ReadDirOptions options) {
+filesystem::readdir(std::string path, std::optional<ReadDirOptions> options) {
+  setDefault(options, {.recursive = false, .follow_symlinks = true});
   co_return readdirSync(path, options);
 }
-async_simple::coro::Lazy<bool> filesystem::mkdir(std::string path,
-                                                 MkDirOptions options) {
+async_simple::coro::Lazy<bool>
+filesystem::mkdir(std::string path, std::optional<MkDirOptions> options) {
+  setDefault(options, {.recursive = false});
   co_return mkdirSync(path, options);
 }
-bool filesystem::mkdirSync(std::string path, MkDirOptions options) {
+bool filesystem::mkdirSync(std::string path,
+                           std::optional<MkDirOptions> options) {
+  setDefault(options, {.recursive = false});
   try {
-    if (options.recursive) {
+    if (options->recursive) {
       std::filesystem::create_directories(path);
     } else {
       std::filesystem::create_directory(path);
@@ -88,8 +96,9 @@ bool filesystem::mkdirSync(std::string path, MkDirOptions options) {
 bool filesystem::exists(std::string path) {
   return std::filesystem::exists(path);
 }
-bool filesystem::rmSync(std::string path, RmOptions options) {
-  if (options.recursive) {
+bool filesystem::rmSync(std::string path, std::optional<RmOptions> options) {
+  setDefault(options, {.recursive = false});
+  if (options->recursive) {
     std::filesystem::remove_all(path);
   } else {
     std::filesystem::remove(path);
@@ -101,7 +110,8 @@ async_simple::coro::Lazy<bool>
 filesystem::writeStringToFile(std::string path, std::string content) {
   // create first if it doesn't exist
   if (!std::filesystem::exists(path)) {
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    std::filesystem::create_directories(
+        std::filesystem::path(path).parent_path());
     std::ofstream file(path, std::ios::out | std::ios::binary);
     if (!file.is_open()) {
       throw std::runtime_error("Error creating file: " + path);
@@ -130,8 +140,9 @@ filesystem::writeStringToFile(std::string path, std::string content) {
 
   co_return true;
 }
-async_simple::coro::Lazy<bool> filesystem::rm(std::string path,
-                                              RmOptions options) {
+async_simple::coro::Lazy<bool>
+filesystem::rm(std::string path, std::optional<RmOptions> options) {
+  setDefault(options, {.recursive = false});
   co_return rmSync(path, options);
 }
 } // namespace breeze::js

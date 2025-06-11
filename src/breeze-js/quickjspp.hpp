@@ -28,6 +28,7 @@
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -543,12 +544,18 @@ template <typename T> T unwrap_free(JSContext *ctx, JSValue val) {
 
 template <typename T, size_t I, size_t NArgs> struct unwrap_arg_impl {
   static auto unwrap(JSContext *ctx, int argc, JSValueConst *argv) {
-    if (size_t(argc) <= I) {
-      JS_ThrowTypeError(ctx, "Expected at least %lu arguments but received %d",
-                        (unsigned long)NArgs, argc);
-      throw exception{ctx};
+    if (size_t(argc) > I) {
+      return js_traits<std::decay_t<T>>::unwrap(ctx, argv[I]);
+    } else {
+      if constexpr (std::is_convertible_v<std::nullopt_t, std::decay_t<T>>) {
+        return static_cast<std::decay_t<T>>(std::nullopt);
+      } else {
+        JS_ThrowTypeError(ctx,
+                          "Expected at least %lu arguments but received %d",
+                          (unsigned long)NArgs, argc);
+        throw exception{ctx};
+      }
     }
-    return js_traits<std::decay_t<T>>::unwrap(ctx, argv[I]);
   }
 };
 
