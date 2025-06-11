@@ -70,12 +70,10 @@ filesystem::readdirSync(std::string path,
 
 async_simple::coro::Lazy<std::vector<std::string>>
 filesystem::readdir(std::string path, std::optional<ReadDirOptions> options) {
-  setDefault(options, {.recursive = false, .follow_symlinks = true});
   co_return readdirSync(path, options);
 }
 async_simple::coro::Lazy<bool>
 filesystem::mkdir(std::string path, std::optional<MkDirOptions> options) {
-  setDefault(options, {.recursive = false});
   co_return mkdirSync(path, options);
 }
 bool filesystem::mkdirSync(std::string path,
@@ -142,7 +140,6 @@ filesystem::writeStringToFile(std::string path, std::string content) {
 }
 async_simple::coro::Lazy<bool>
 filesystem::rm(std::string path, std::optional<RmOptions> options) {
-  setDefault(options, {.recursive = false});
   co_return rmSync(path, options);
 }
 } // namespace breeze::js
