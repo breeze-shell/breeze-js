@@ -60,10 +60,16 @@ void wait_with_msgloop(std::function<void()> f);
  */
 class exception : public std::runtime_error {
   JSContext *ctx;
-  inline std::string message(JSContext *ctx = nullptr) const;
+  std::optional<JSValue> value;
+  inline std::string message(JSContext *ctx = nullptr);
 
 public:
   exception(JSContext *ctx) : std::runtime_error(message(ctx)), ctx(ctx) {}
+  ~exception() noexcept {
+    if (value) {
+      JS_FreeValue(ctx, *value);
+    }
+  }
   Context &context() const;
 
   /// Clears and returns the occurred exception.
@@ -2238,7 +2244,12 @@ template <typename Function> void Context::enqueueJob(Function &&job) {
 
 inline Context &exception::context() const { return Context::get(ctx); }
 
-inline Value exception::get() { return context().getException(); }
+inline Value exception::get() {
+  if (!value) {
+    this->value = JS_GetException(ctx);
+  }
+  return Value{weakFromContext(ctx), JS_DupValue(ctx, *value)};
+}
 
 inline void Runtime::promise_unhandled_rejection_tracker(JSContext *ctx,
                                                          JSValue promise,
@@ -2307,10 +2318,9 @@ inline Context *Runtime::executePendingJob() {
   return &Context::get(ctx);
 }
 
-inline std::string exception::message(JSContext *ctx) const {
-  auto &js = Context::get(ctx ? ctx : this->ctx);
-  auto exc = js.getException();
-
+inline std::string exception::message(JSContext *ctx) {
+  this->ctx = ctx;
+  auto exc = get();
   std::string message = (std::string)exc;
   if ((bool)exc["stack"])
     message += "\n" + (std::string)exc["stack"];
@@ -2399,7 +2409,8 @@ template <typename T> struct js_traits<async_simple::coro::Lazy<T>> {
               JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 0, nullptr);
             } else {
               JSValue resolved_value = js_traits<T>::wrap(ctx, result.value());
-              JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 1, &resolved_value);
+              JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 1,
+                      &resolved_value);
               JS_FreeValue(ctx, resolved_value);
             }
           }
