@@ -9,7 +9,84 @@ export class filesystem {
      * @param path: string
      * @returns string
      */
-    static readFileSync(path: string): string
+    static readFileAsStringSync(path: string): string
+	/**
+     * 
+     * @param path: string
+     * @returns Promise<string>
+     */
+    static readFileAsString(path: string): Promise<string>
+	/**
+     * 
+     * @param path: string
+     * @param options: filesystem.ReadDirOptions
+     * @returns Promise<Array<string>>
+     */
+    static readdir(path: string, options: filesystem.ReadDirOptions): Promise<Array<string>>
+	/**
+     * 
+     * @param path: string
+     * @param options: filesystem.ReadDirOptions
+     * @returns Array<string>
+     */
+    static readdirSync(path: string, options: filesystem.ReadDirOptions): Array<string>
+	/**
+     * 
+     * @param path: string
+     * @param options: filesystem.MkDirOptions
+     * @returns Promise<boolean>
+     */
+    static mkdir(path: string, options: filesystem.MkDirOptions): Promise<boolean>
+	/**
+     * 
+     * @param path: string
+     * @param options: filesystem.MkDirOptions
+     * @returns boolean
+     */
+    static mkdirSync(path: string, options: filesystem.MkDirOptions): boolean
+	/**
+     * 
+     * @param path: string
+     * @returns boolean
+     */
+    static exists(path: string): boolean
+	/**
+     * 
+     * @param path: string
+     * @param options: filesystem.RmOptions
+     * @returns Promise<boolean>
+     */
+    static rm(path: string, options: filesystem.RmOptions): Promise<boolean>
+	/**
+     * 
+     * @param path: string
+     * @param options: filesystem.RmOptions
+     * @returns boolean
+     */
+    static rmSync(path: string, options: filesystem.RmOptions): boolean
+	/**
+     * 
+     * @param path: string
+     * @param content: string
+     * @returns Promise<boolean>
+     */
+    static writeStringToFile(path: string, content: string): Promise<boolean>
+}
+namespace filesystem {
+export class ReadDirOptions {
+	recursive: boolean
+	follow_symlinks: boolean
+}
+}
+namespace filesystem {
+export class MkDirOptions {
+	recursive: boolean
+}
+}
+namespace filesystem {
+export class RmOptions {
+	recursive: boolean
+}
 }
 export class infra {
 	/**

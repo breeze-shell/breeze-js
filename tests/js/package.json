@@ -14,5 +14,8 @@
     "build": "esbuild index.ts --external:breeze --bundle --outfile=index.js --platform=browser --format=esm --target=esnext",
     "test": "yarn build && powershell /Command xmake r breeze-js-cli --file $PWD/index.js"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "mocha": "^11.6.0"
+  }
 }

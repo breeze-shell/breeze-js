@@ -28,7 +28,99 @@ template<> struct js_bind<breeze::js::filesystem> {
     static void bind(qjs::Context::Module &mod) {
         mod.class_<breeze::js::filesystem>("filesystem")
             .constructor<>()
-                .static_fun<&breeze::js::filesystem::readFileSync>("readFileSync")
+                .static_fun<&breeze::js::filesystem::readFileAsStringSync>("readFileAsStringSync")
+                .static_fun<&breeze::js::filesystem::readFileAsString>("readFileAsString")
+                .static_fun<&breeze::js::filesystem::readdir>("readdir")
+                .static_fun<&breeze::js::filesystem::readdirSync>("readdirSync")
+                .static_fun<&breeze::js::filesystem::mkdir>("mkdir")
+                .static_fun<&breeze::js::filesystem::mkdirSync>("mkdirSync")
+                .static_fun<&breeze::js::filesystem::exists>("exists")
+                .static_fun<&breeze::js::filesystem::rm>("rm")
+                .static_fun<&breeze::js::filesystem::rmSync>("rmSync")
+                .static_fun<&breeze::js::filesystem::writeStringToFile>("writeStringToFile")
+            ;
+    }
+};
+
+template <> struct qjs::js_traits<breeze::js::filesystem::ReadDirOptions> {
+    static breeze::js::filesystem::ReadDirOptions unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::filesystem::ReadDirOptions obj;
+
+        obj.recursive = js_traits<bool>::unwrap(ctx, JS_GetPropertyStr(ctx, v, "recursive"));
+
+        obj.follow_symlinks = js_traits<bool>::unwrap(ctx, JS_GetPropertyStr(ctx, v, "follow_symlinks"));
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::filesystem::ReadDirOptions &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        JS_SetPropertyStr(ctx, obj, "recursive", js_traits<bool>::wrap(ctx, val.recursive));
+
+        JS_SetPropertyStr(ctx, obj, "follow_symlinks", js_traits<bool>::wrap(ctx, val.follow_symlinks));
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::filesystem::ReadDirOptions> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::filesystem::ReadDirOptions>("filesystem::ReadDirOptions")
+            .constructor<>()
+                .fun<&breeze::js::filesystem::ReadDirOptions::recursive>("recursive")
+                .fun<&breeze::js::filesystem::ReadDirOptions::follow_symlinks>("follow_symlinks")
+            ;
+    }
+};
+
+template <> struct qjs::js_traits<breeze::js::filesystem::MkDirOptions> {
+    static breeze::js::filesystem::MkDirOptions unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::filesystem::MkDirOptions obj;
+
+        obj.recursive = js_traits<bool>::unwrap(ctx, JS_GetPropertyStr(ctx, v, "recursive"));
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::filesystem::MkDirOptions &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        JS_SetPropertyStr(ctx, obj, "recursive", js_traits<bool>::wrap(ctx, val.recursive));
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::filesystem::MkDirOptions> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::filesystem::MkDirOptions>("filesystem::MkDirOptions")
+            .constructor<>()
+                .fun<&breeze::js::filesystem::MkDirOptions::recursive>("recursive")
+            ;
+    }
+};
+
+template <> struct qjs::js_traits<breeze::js::filesystem::RmOptions> {
+    static breeze::js::filesystem::RmOptions unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::filesystem::RmOptions obj;
+
+        obj.recursive = js_traits<bool>::unwrap(ctx, JS_GetPropertyStr(ctx, v, "recursive"));
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::filesystem::RmOptions &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        JS_SetPropertyStr(ctx, obj, "recursive", js_traits<bool>::wrap(ctx, val.recursive));
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::filesystem::RmOptions> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::filesystem::RmOptions>("filesystem::RmOptions")
+            .constructor<>()
+                .fun<&breeze::js::filesystem::RmOptions::recursive>("recursive")
             ;
     }
 };
@@ -87,6 +179,12 @@ template<> struct js_bind<breeze::js::test> {
 inline void bindAll(qjs::Context::Module &mod) {
 
     js_bind<breeze::js::filesystem>::bind(mod);
+
+    js_bind<breeze::js::filesystem::ReadDirOptions>::bind(mod);
+
+    js_bind<breeze::js::filesystem::MkDirOptions>::bind(mod);
+
+    js_bind<breeze::js::filesystem::RmOptions>::bind(mod);
 
     js_bind<breeze::js::infra>::bind(mod);
 
