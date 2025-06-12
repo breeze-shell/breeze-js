@@ -15,6 +15,9 @@ add_requires("yalantinglibs", {
 
 set_runtimes("MT")
 
+includes("bindgen.lua")
+
+
 target("breeze-quickjs-ng")
     set_kind("static")
     set_languages("c89", "c++20")
@@ -29,6 +32,10 @@ target("breeze-js-runtime")
     set_kind("static")
     add_deps("breeze-quickjs-ng")
     add_packages("yalantinglibs", { public = true })
+    add_rules("breezejs.bindgen", {
+        name_filter = "breeze::js",
+        ts_module_name = "breeze",
+    })
     add_files("src/breeze-js/*.cc", "src/breeze-js/**/*.cc")
     add_headerfiles("src/breeze-js/*.h")
     add_includedirs("src/breeze-js", {public = true})

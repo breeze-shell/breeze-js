@@ -1,6 +1,6 @@
 #include "script.h"
 #include "async_simple/coro/Lazy.h"
-#include "binding/binding_qjs.h"
+#include "binding/binding_types.breezejs.qjs.h"
 
 #include <algorithm>
 #include <codecvt>

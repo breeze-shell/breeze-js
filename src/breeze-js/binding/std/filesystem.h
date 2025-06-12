@@ -1,6 +1,7 @@
 #pragma once
 #include "../binding_helpers.h"
 
+
 namespace breeze::js {
 struct filesystem {
   static std::string readFileAsStringSync(std::string path);
