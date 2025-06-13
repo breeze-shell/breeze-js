@@ -13,8 +13,6 @@ add_requires("yalantinglibs", {
     }
 })
 
-set_runtimes("MT")
-
 includes("bindgen.lua")
 
 
