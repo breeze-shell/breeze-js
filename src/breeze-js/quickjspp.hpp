@@ -37,8 +37,6 @@
 #include "async_simple/coro/Lazy.h"
 #endif
 
-#define NOMINMAX
-#include "Windows.h"
 namespace breeze {
 extern thread_local bool is_thread_js_main;
 }
