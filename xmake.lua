@@ -7,10 +7,21 @@ add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
 
 add_requires("cxxopts")
-add_requires("yalantinglibs", {
+
+add_requires("yalantinglibs b82a21925958b6c50deba3aa26a2737cdb814e27", {
     configs = {
         ssl = true
     }
+})
+
+add_requireconfs("**.cinatra", {
+    override = true,
+    version = "e329293f6705649a6f1e8847ec845a7631179bb8"
+})
+
+add_requireconfs("**.async_simple", {
+    override = true,
+    version = "18f3882be354d407af0f0674121dcddaeff36e26"
 })
 
 includes("bindgen.lua")
