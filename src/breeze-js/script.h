@@ -6,10 +6,13 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <print>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 
 
 namespace breeze {
@@ -20,6 +23,8 @@ struct script_context {
   std::shared_ptr<int> stop_signal = std::make_shared<int>(0);
   std::optional<std::jthread> js_thread;
   std::filesystem::path module_base;
+
+  std::unordered_set<std::function<void()>> on_bind;
 
   script_context();
   ~script_context();

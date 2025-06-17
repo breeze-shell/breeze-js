@@ -77,6 +77,10 @@ void script_context::bind() {
   g["console"]["warn"] = println_fn;
   g["console"]["error"] = println_fn;
   g["console"]["debug"] = println_fn;
+
+  for (auto &fn : on_bind) {
+    fn();
+  }
 }
 script_context::script_context() : rt{}, js{} {}
 void script_context::reset_runtime() {
