@@ -11,8 +11,7 @@
 #include <optional>
 #include <print>
 #include <thread>
-#include <unordered_map>
-#include <unordered_set>
+#include <vector>
 
 
 namespace breeze {
@@ -24,7 +23,7 @@ struct script_context {
   std::optional<std::jthread> js_thread;
   std::filesystem::path module_base;
 
-  std::unordered_set<std::function<void()>> on_bind;
+  std::vector<std::function<void()>> on_bind;
 
   script_context();
   ~script_context();
