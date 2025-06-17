@@ -48,7 +48,7 @@ filesystem::readFileAsString(std::string path) {
 std::vector<std::string>
 filesystem::readdirSync(std::string path,
                         std::optional<ReadDirOptions> options) {
-  setDefault(options, {.recursive = false, .follow_symlinks = true});
+  setDefault(options);
 
   std::vector<std::string> result;
   try {
@@ -78,7 +78,7 @@ filesystem::mkdir(std::string path, std::optional<MkDirOptions> options) {
 }
 bool filesystem::mkdirSync(std::string path,
                            std::optional<MkDirOptions> options) {
-  setDefault(options, {.recursive = false});
+  setDefault(options);
   try {
     if (options->recursive) {
       std::filesystem::create_directories(path);
@@ -95,7 +95,7 @@ bool filesystem::exists(std::string path) {
   return std::filesystem::exists(path);
 }
 bool filesystem::rmSync(std::string path, std::optional<RmOptions> options) {
-  setDefault(options, {.recursive = false});
+  setDefault(options);
   if (options->recursive) {
     std::filesystem::remove_all(path);
   } else {

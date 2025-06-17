@@ -9,8 +9,8 @@ struct filesystem {
   readFileAsString(std::string path);
 
   struct ReadDirOptions {
-    bool recursive;
-    bool follow_symlinks;
+    bool recursive = false;
+    bool follow_symlinks = false;
   };
 
   static async_simple::coro::Lazy<std::vector<std::string>>
@@ -20,7 +20,7 @@ struct filesystem {
   readdirSync(std::string path, std::optional<ReadDirOptions> options);
 
   struct MkDirOptions {
-    bool recursive;
+    bool recursive = false;
   };
 
   static async_simple::coro::Lazy<bool>
@@ -31,7 +31,7 @@ struct filesystem {
   static bool exists(std::string path);
 
   struct RmOptions {
-    bool recursive;
+    bool recursive = false;
   };
 
   static async_simple::coro::Lazy<bool> rm(std::string path,
