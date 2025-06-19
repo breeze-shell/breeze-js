@@ -1,4 +1,4 @@
-#include "script.h"
+#include "breeze-js/script.h"
 #include "async_simple/coro/Lazy.h"
 #include "binding/binding_types.breezejs.qjs.h"
 
@@ -15,8 +15,8 @@
 #include <unordered_set>
 
 #include "FileWatch.hpp"
-#include "quickjs/quickjs.h"
-#include "quickjspp.hpp"
+#include "breeze-js/quickjs.h"
+#include "breeze-js/quickjspp.hpp"
 
 namespace breeze {
 

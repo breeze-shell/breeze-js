@@ -1,5 +1,5 @@
 #include "cxxopts.hpp"
-#include "quickjs/quickjs.h"
+#include "breeze-js/quickjs.h"
 #include "breeze-js/script.h"
 #include <optional>
 #include <string>

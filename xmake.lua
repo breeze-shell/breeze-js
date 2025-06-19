@@ -34,8 +34,9 @@ target("breeze-quickjs-ng")
         add_syslinks("m", "pthread")
     end
     add_files("src/quickjs/*.c")
-    add_headerfiles("src/quickjs/*.h")
-    add_includedirs("src/", { public = true })
+    add_headerfiles("src/quickjs/headers/**/*.h")
+    add_includedirs("src/quickjs/headers/breeze-js/")
+    add_includedirs("src/quickjs/headers/", { public = true })
 
 target("breeze-js-runtime")
     set_kind("static")
@@ -46,8 +47,8 @@ target("breeze-js-runtime")
         ts_module_name = "breeze",
     })
     add_files("src/breeze-js/*.cc", "src/breeze-js/**/*.cc")
-    add_headerfiles("src/breeze-js/*.h", "src/breeze-js/**/*.hpp")
-    add_includedirs("src/", {public = true})
+    add_headerfiles("src/breeze-js/headers/*.h", "src/breeze-js/headers/**/*.hpp")
+    add_includedirs("src/breeze-js/headers/", {public = true})
 
 target("breeze-js-cli")
     set_kind("binary")

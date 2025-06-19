@@ -6,7 +6,7 @@
 #include <thread>
 
 
-#include "../../quickjspp.hpp"
+#include "breeze-js/quickjspp.hpp"
 namespace breeze::js {
 async_simple::coro::Lazy<void> infra::sleep(int ms) {
   co_await async_simple::coro::sleep(std::chrono::milliseconds(ms));
