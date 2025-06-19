@@ -46,7 +46,7 @@ target("breeze-js-runtime")
         ts_module_name = "breeze",
     })
     add_files("src/breeze-js/*.cc", "src/breeze-js/**/*.cc")
-    add_headerfiles("src/breeze-js/*.h")
+    add_headerfiles("src/breeze-js/*.h", "src/breeze-js/**/*.hpp")
     add_includedirs("src/breeze-js", {public = true})
 
 target("breeze-js-cli")
