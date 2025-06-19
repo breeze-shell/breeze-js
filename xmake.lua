@@ -35,11 +35,11 @@ target("breeze-quickjs-ng")
     end
     add_files("src/quickjs/*.c")
     add_headerfiles("src/quickjs/*.h")
-    add_includedirs("src/quickjs", {public = true})
+    add_includedirs("src/", { public = true })
 
 target("breeze-js-runtime")
     set_kind("static")
-    add_deps("breeze-quickjs-ng")
+    add_deps("breeze-quickjs-ng", { public = true })
     add_packages("yalantinglibs", { public = true })
     add_rules("breezejs.bindgen", {
         name_filter = "breeze::js",
@@ -47,7 +47,7 @@ target("breeze-js-runtime")
     })
     add_files("src/breeze-js/*.cc", "src/breeze-js/**/*.cc")
     add_headerfiles("src/breeze-js/*.h", "src/breeze-js/**/*.hpp")
-    add_includedirs("src/breeze-js", {public = true})
+    add_includedirs("src/", {public = true})
 
 target("breeze-js-cli")
     set_kind("binary")

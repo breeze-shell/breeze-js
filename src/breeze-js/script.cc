@@ -15,7 +15,7 @@
 #include <unordered_set>
 
 #include "FileWatch.hpp"
-#include "quickjs.h"
+#include "quickjs/quickjs.h"
 #include "quickjspp.hpp"
 
 namespace breeze {

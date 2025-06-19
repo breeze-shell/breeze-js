@@ -1,6 +1,6 @@
 #include "cxxopts.hpp"
-#include "quickjs.h"
-#include "script.h"
+#include "quickjs/quickjs.h"
+#include "breeze-js/script.h"
 #include <optional>
 #include <string>
 

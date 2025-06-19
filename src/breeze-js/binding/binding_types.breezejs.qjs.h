@@ -3,7 +3,6 @@
 
 #pragma once
 #include "binding_types.h"
-#include "quickjs.h"
 #include "quickjspp.hpp"
 
 template <typename T>
