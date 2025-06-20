@@ -2,8 +2,9 @@
 
 #include "async_simple/Try.h"
 
-#include "cinatra/ylt/coro_io/io_context_pool.hpp"
 #include "breeze-js/quickjs.h"
+#include "cinatra/ylt/coro_io/io_context_pool.hpp"
+
 
 #include <algorithm>
 #include <cassert>
@@ -1928,7 +1929,7 @@ template <> struct js_traits<Value> {
   }
 
   static JSValue wrap(JSContext *ctx, Value v) noexcept {
-    assert(JS_GetRuntime(ctx) == JS_GetRuntime(v.ctx));
+    assert(v.ctx == nullptr || JS_GetRuntime(ctx) == JS_GetRuntime(v.ctx));
     return v.release();
   }
 };
