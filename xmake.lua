@@ -8,7 +8,7 @@ add_rules("mode.releasedbg")
 
 add_requires("cxxopts")
 
-add_requires("yalantinglibs 6108e989aebe226a4d832112d4f6a4bf9a25101f", {
+add_requires("yalantinglibs 0c98464dd202aaa6275a8da3297719a436b8a51a", {
     configs = {
         ssl = true
     }
