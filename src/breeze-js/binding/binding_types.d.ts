@@ -195,27 +195,6 @@ export class URLSearchParams {
 }
 namespace infra {
 export class URL {
-	get href(): string;
-    set href(value: string);
-	get protocol(): string;
-    set protocol(value: string);
-	get username(): string;
-    set username(value: string);
-	get password(): string;
-    set password(value: string);
-	get host(): string;
-    set host(value: string);
-	get hostname(): string;
-    set hostname(value: string);
-	get port(): string;
-    set port(value: string);
-	get pathname(): string;
-    set pathname(value: string);
-	get search(): string;
-    set search(value: string);
-	get searchParams(): infra.URLSearchParams;
-	get hash(): string;
-    set hash(value: string);
 	/**
      * 
      * @param url_string: string
@@ -230,7 +209,78 @@ export class URL {
      * @returns boolean
      */
     static canParse(url_string: string, base_string: string): boolean
+	get_href(): string
+	/**
+     * 
+     * @param new_href: string
+     * @returns void
+     */
+    set_href(new_href: string): void
 	origin(): string
+	get_protocol(): string
+	/**
+     * 
+     * @param new_protocol: string
+     * @returns void
+     */
+    set_protocol(new_protocol: string): void
+	get_username(): string
+	/**
+     * 
+     * @param new_username: string
+     * @returns void
+     */
+    set_username(new_username: string): void
+	get_password(): string
+	/**
+     * 
+     * @param new_password: string
+     * @returns void
+     */
+    set_password(new_password: string): void
+	get_host(): string
+	/**
+     * 
+     * @param new_host: string
+     * @returns void
+     */
+    set_host(new_host: string): void
+	get_hostname(): string
+	/**
+     * 
+     * @param new_hostname: string
+     * @returns void
+     */
+    set_hostname(new_hostname: string): void
+	get_port(): string
+	/**
+     * 
+     * @param new_port: string
+     * @returns void
+     */
+    set_port(new_port: string): void
+	get_pathname(): string
+	/**
+     * 
+     * @param new_pathname: string
+     * @returns void
+     */
+    set_pathname(new_pathname: string): void
+	get_search(): string
+	/**
+     * 
+     * @param new_search: string
+     * @returns void
+     */
+    set_search(new_search: string): void
+	get_searchParams(): infra.URLSearchParams
+	get_hash(): string
+	/**
+     * 
+     * @param new_hash: string
+     * @returns void
+     */
+    set_hash(new_hash: string): void
 	toJSON(): string
 }
 }

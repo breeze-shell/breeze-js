@@ -204,7 +204,8 @@ template <> struct qjs::js_traits<breeze::js::infra::URL> {
 template<> struct js_bind<breeze::js::infra::URL> {
     static void bind(qjs::Context::Module &mod) {
         mod.class_<breeze::js::infra::URL>("infra::URL")
-            .constructor<>()
+            // .constructor<>()
+                .constructor<const std::string &>()
                 .property<&breeze::js::infra::URL::get_href, &breeze::js::infra::URL::set_href>("href")
                 .property<&breeze::js::infra::URL::get_protocol, &breeze::js::infra::URL::set_protocol>("protocol")
                 .property<&breeze::js::infra::URL::get_username, &breeze::js::infra::URL::set_username>("username")

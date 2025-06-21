@@ -6,7 +6,7 @@ set_warnings("all")
 add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
 
-add_requires("cxxopts")
+add_requires("cxxopts", "ctre")
 
 add_requires("yalantinglibs 0c98464dd202aaa6275a8da3297719a436b8a51a", {
     configs = {
@@ -42,6 +42,7 @@ target("breeze-js-runtime")
     set_kind("static")
     add_deps("breeze-quickjs-ng", { public = true })
     add_packages("yalantinglibs", { public = true })
+    add_packages("ctre")
     add_rules("breezejs.bindgen", {
         name_filter = "breeze::js",
         ts_module_name = "breeze",

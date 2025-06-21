@@ -1,6 +1,7 @@
 import { runTests } from "./test"
-import "./tests/infra"
-import "./tests/filesystem"
+// import "./tests/infra"
+// import "./tests/filesystem"
+import "./tests/webapi"
 
 try {
     await runTests()

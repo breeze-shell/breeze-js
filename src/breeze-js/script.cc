@@ -90,7 +90,8 @@ globalThis.setInterval = breeze.infra.setInterval;
 globalThis.clearInterval = breeze.infra.clearInterval;
 globalThis.atob = breeze.infra.atob;
 globalThis.btoa = breeze.infra.btoa;
-
+globalThis.URL = breeze.infra.URL;
+globalThis.URLSearchParams = breeze.infra.URLSearchParams;
 
 
     )");
