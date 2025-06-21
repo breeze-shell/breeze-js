@@ -72,11 +72,28 @@ void script_context::bind() {
   qjs::Value println_fn =
       qjs::js_traits<std::function<void(qjs::rest<std::string>)>>::wrap(
           js->ctx, println);
-  g["console"]["log"] = println_fn;
-  g["console"]["info"] = println_fn;
-  g["console"]["warn"] = println_fn;
-  g["console"]["error"] = println_fn;
-  g["console"]["debug"] = println_fn;
+
+  std::ignore = eval_string(R"(
+import * as breeze from "breeze";
+globalThis.breeze = breeze;
+globalThis.console = {
+  log: breeze.println,
+  info: breeze.println,
+  warn: breeze.println,
+  error: breeze.println,
+  debug: breeze.println,
+};
+
+globalThis.setTimeout = breeze.infra.setTimeout;
+globalThis.clearTimeout = breeze.infra.clearTimeout;
+globalThis.setInterval = breeze.infra.setInterval;
+globalThis.clearInterval = breeze.infra.clearInterval;
+globalThis.atob = breeze.infra.atob;
+globalThis.btoa = breeze.infra.btoa;
+
+
+
+    )");
 
   for (auto &fn : on_bind) {
     fn();
