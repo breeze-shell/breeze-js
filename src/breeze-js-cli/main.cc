@@ -1,8 +1,10 @@
-#include "cxxopts.hpp"
+#include "async_simple/coro/SyncAwait.h"
 #include "breeze-js/quickjs.h"
 #include "breeze-js/script.h"
+#include "cxxopts.hpp"
 #include <optional>
 #include <string>
+
 
 int main(int argc, char **argv) {
   cxxopts::Options options("breeze-js", "Breeze.JS - A JavaScript runtime.");
@@ -80,6 +82,11 @@ int main(int argc, char **argv) {
         std::cerr << "Error evaluating string: " << eval_result.error()
                   << std::endl;
         return EXIT_FAILURE;
+      } else {
+
+        std::cout << async_simple::coro::syncAwait(eval_result.value().await())
+                         .as<std::string>()
+                  << std::endl;
       }
     } else {
       std::cout << options.help() << std::endl;

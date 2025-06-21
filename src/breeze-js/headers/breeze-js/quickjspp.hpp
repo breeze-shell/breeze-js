@@ -5,7 +5,6 @@
 #include "breeze-js/quickjs.h"
 #include "cinatra/ylt/coro_io/io_context_pool.hpp"
 
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -1363,9 +1362,6 @@ public:
     return js_traits<std::decay_t<T>>::unwrap(ctx, v);
   }
 
-  /** Explicit conversion: static_cast<T>(value) or (T)value */
-  template <typename T> explicit operator T() const { return as<T>(); }
-
   JSValue release() noexcept // dont call freevalue
   {
     ctx = nullptr;
@@ -1390,6 +1386,8 @@ public:
             ctx, std::forward<Function>(f));
     return *this;
   }
+
+  inline async_simple::coro::Lazy<Value> await();
 
   // add<&f>("f");
   // add<&T::f>("f");
@@ -1459,8 +1457,9 @@ public:
     assert(ctx);
     assert(!replacer.ctx || ctx == replacer.ctx);
     assert(!space.ctx || ctx == space.ctx);
-    return (std::string)Value{weakFromContext(ctx),
-                              JS_JSONStringify(ctx, v, replacer.v, space.v)};
+    return Value{weakFromContext(ctx),
+                 JS_JSONStringify(ctx, v, replacer.v, space.v)}
+        .as<std::string>();
   }
 
   /** same as Context::eval() but with this Value as 'this' */
@@ -1474,6 +1473,28 @@ public:
         JS_EvalThis(ctx, v, buffer.data(), buffer.size(), filename, flags)};
   }
 };
+
+inline async_simple::coro::Lazy<Value> Value::await() {
+  if (!ctx)
+    throw std::runtime_error{"Cannot await on Value with no JSContext"};
+
+  auto state = JS_PROMISE_PENDING;
+  while (true) {
+    state = JS_PromiseState(ctx, v);
+    if (state == JS_PROMISE_REJECTED) {
+      JS_Throw(ctx, JS_PromiseResult(ctx, v));
+      throw exception{ctx};
+    } else if (state == JS_PROMISE_FULFILLED) {
+
+      co_return Value{weakFromContext(ctx), JS_PromiseResult(ctx, v)};
+    } else if (state == JS_PROMISE_PENDING) {
+      // still pending, continue waiting
+    } else {
+      co_return *this;
+    }
+    co_await async_simple::coro::Yield{};
+  }
+}
 
 /** Thin wrapper over JSRuntime * rt
  * Calls JS_FreeRuntime on destruction. noncopyable.
@@ -1551,6 +1572,8 @@ inline std::string toUri(std::string_view filename) {
 class Context : public std::enable_shared_from_this<Context> {
 public:
   JSContext *ctx;
+  std::optional<JSValue> current_exception;
+
   thread_local static Context *current;
   // for starting jobs quickly
   std::condition_variable js_job_start_cv = {};
@@ -2251,10 +2274,17 @@ template <typename Function> void Context::enqueueJob(Function &&job) {
 inline Context &exception::context() const { return Context::get(ctx); }
 
 inline Value exception::get() {
+  auto& ctx = context();
   if (!value) {
-    this->value = JS_GetException(ctx);
+    this->value = JS_GetException(ctx.ctx);
+
+    if (this->value->tag > 8) {
+      this->value = ctx.current_exception.value();
+    }
+
+    ctx.current_exception = this->value;
   }
-  return Value{weakFromContext(ctx), JS_DupValue(ctx, *value)};
+  return Value{ctx.ctx, JS_DupValue(ctx.ctx, *value)};
 }
 
 inline void Runtime::promise_unhandled_rejection_tracker(JSContext *ctx,
@@ -2327,9 +2357,9 @@ inline Context *Runtime::executePendingJob() {
 inline std::string exception::message(JSContext *ctx) {
   this->ctx = ctx;
   auto exc = get();
-  std::string message = (std::string)exc;
+  std::string message = exc.as<std::string>();
   if ((bool)exc["stack"])
-    message += "\n" + (std::string)exc["stack"];
+    message += "\n" + exc["stack"].as<std::string>();
 
   return message;
 }

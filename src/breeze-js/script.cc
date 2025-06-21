@@ -172,8 +172,8 @@ script_context::eval_string(const std::string &script,
     if (JS_IsException(func)) {
       auto error_val = js->getException();
       std::string error_msg = "Error compiling file: " + std::string(filename) +
-                              " " + (std::string)error_val +
-                              (std::string)error_val["stack"];
+                              " " + error_val.as<std::string>() +
+                              error_val["stack"].as<std::string>();
       JS_FreeValue(js->ctx, func);
       return std::unexpected(error_msg);
     }
@@ -196,8 +196,8 @@ script_context::eval_string(const std::string &script,
     auto val = qjs::Value{js->ctx, JS_EvalFunction(js->ctx, func)};
     if (val.isError()) {
       std::string error_msg = "Error executing file: " + std::string(filename) +
-                              " " + (std::string)val +
-                              (std::string)val["stack"];
+                              " " + val.as<std::string>() +
+                              val["stack"].as<std::string>();
       return std::unexpected(error_msg);
     }
     return val;
@@ -259,8 +259,8 @@ std::string script_context::current_exception_string() {
 
   auto exc = js->getException();
   if (exc.isError()) {
-    return std::format("JS Error: {}\nStack: {}", (std::string)exc,
-                       (std::string)exc["stack"]);
+    return std::format("JS Error: {}\nStack: {}", exc.as<std::string>(),
+                       exc["stack"].as<std::string>());
   }
 
   return "No exception occurred";
