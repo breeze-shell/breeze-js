@@ -219,17 +219,15 @@ export class URL {
 	/**
      * 
      * @param url_string: string
-     * @param base_string: string
      * @returns infra.URL
      */
-    static parse(url_string: string, base_string: string): infra.URL
+    static parse(url_string: string): infra.URL
 	/**
      * 
      * @param url_string: string
-     * @param base_string: string
      * @returns boolean
      */
-    static canParse(url_string: string, base_string: string): boolean
+    static canParse(url_string: string): boolean
 	origin(): string
 	toJSON(): string
 }

@@ -8,6 +8,7 @@
 #include <regex>
 #include <sstream>
 #include <thread>
+#include <list>
 
 #include "breeze-js/quickjspp.hpp"
 
@@ -38,7 +39,7 @@ std::optional<std::thread> timer_thread;
 void timer_thread_func() {
   while (true) {
     constexpr auto sleep_time = 30;
-    Sleep(sleep_time);
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
 
     std::vector<std::function<void()>> callbacks;
     for (auto &timer : timers) {

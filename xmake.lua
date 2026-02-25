@@ -1,7 +1,7 @@
 set_project("breeze-js")
 set_policy("compatibility.version", "3.0")
 
-set_languages("c++2b")
+set_languages("cxx23", "c23")
 set_warnings("all") 
 add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
@@ -29,7 +29,7 @@ includes("bindgen.lua")
 
 target("breeze-quickjs-ng")
     set_kind("static")
-    set_languages("c89", "c++20")
+    set_languages("c23", "c++23")
     if is_plat("linux", "bsd", "cross") then
         add_syslinks("m", "pthread")
     end
@@ -51,7 +51,15 @@ target("breeze-js-runtime")
     add_headerfiles("src/breeze-js/headers/(**.h)", "src/breeze-js/headers/(**.hpp)")
     add_includedirs("src/breeze-js/headers/", {public = true})
 
-target("breeze-js-cli")
+    if is_plat("linux", "bsd", "cross") then
+        add_syslinks("m", "pthread")
+    elseif is_plat("windows") then
+        add_syslinks("ws2_32", "user32", "shell32")
+    elseif is_plat("macosx") then
+        add_frameworks("CoreFoundation", "CoreServices")
+    end
+
+target("cli")
     set_kind("binary")
     add_deps("breeze-js-runtime")
     add_packages("cxxopts")

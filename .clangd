@@ -1,2 +1,2 @@
 CompileFlags:
-    Add: ["-std:latest", "/clang:-std=c++26"]
+    Add: ["/clang:-std=c++26"]

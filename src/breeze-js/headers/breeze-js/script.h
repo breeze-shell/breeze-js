@@ -20,7 +20,7 @@ struct script_context {
   std::shared_ptr<qjs::Runtime> rt;
   std::shared_ptr<qjs::Context> js;
   std::shared_ptr<int> stop_signal = std::make_shared<int>(0);
-  std::optional<std::jthread> js_thread;
+  std::optional<std::thread> js_thread;
   std::filesystem::path module_base;
 
   std::vector<std::function<void()>> on_bind;

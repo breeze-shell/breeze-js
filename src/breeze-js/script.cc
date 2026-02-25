@@ -45,8 +45,12 @@ std::string wstring_to_utf8(const std::wstring &wstr) {
 
 void dbgout(const std::string &msg) {
   auto ws = utf8_to_wstring(msg);
+  #ifdef _WIN32
   WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), ws.c_str(), ws.size(), nullptr,
                 nullptr);
+  #else
+  std::cout << msg << std::endl;
+  #endif
 }
 
 void println(qjs::rest<std::string> args) {
@@ -56,8 +60,12 @@ void println(qjs::rest<std::string> args) {
   }
   ss << std::endl;
   auto ws = utf8_to_wstring(ss.str());
+  #ifdef _WIN32
   WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), ws.c_str(), ws.size(), nullptr,
                 nullptr);
+  #else
+  std::cout << ss.str() << std::endl;
+  #endif
 }
 
 void script_context::bind() {
@@ -112,7 +120,7 @@ void script_context::reset_runtime() {
 
   auto future = p_finished.get_future();
 
-  js_thread = std::jthread([&, this, ss = stop_signal]() {
+  js_thread = std::thread([&, this, ss = stop_signal]() {
     is_thread_js_main = true;
     rt = std::make_shared<qjs::Runtime>();
     JS_UpdateStackTop(rt->rt);
