@@ -1,4 +1,5 @@
 #include "breeze-js/quickjspp.hpp"
+#include "breeze-js/script.h"
 #include <print>
 #if defined(_WIN32) || defined(_WIN64)
 #include "Windows.h"
@@ -33,5 +34,20 @@ void wait_with_msgloop(std::function<void()> f) {
   // We don't have a message loop in Linux or macOS, so we just run the function directly.
   f();
   #endif
+}
+
+void Context::postTask(std::function<void()> task) {
+  if (script_ctx) {
+    static_cast<breeze::script_context *>(script_ctx)->post(std::move(task));
+  } else {
+    task(); // fallback: direct execution
+  }
+}
+
+bool Context::isOnJsThread() const {
+  if (script_ctx) {
+    return static_cast<breeze::script_context *>(script_ctx)->is_js_thread();
+  }
+  return true; // assume JS thread if no script_ctx
 }
 } // namespace qjs

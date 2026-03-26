@@ -1,5 +1,4 @@
 #include "async_simple/coro/SyncAwait.h"
-#include "breeze-js/quickjs.h"
 #include "breeze-js/script.h"
 #include "cxxopts.hpp"
 #include <optional>
@@ -54,9 +53,11 @@ int main(int argc, char **argv) {
           return EXIT_FAILURE;
         }
 
-        while (JS_PromiseState(ctx->js->ctx, eval_result->v) ==
-               JS_PROMISE_PENDING) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        try {
+          async_simple::coro::syncAwait(eval_result.value().await());
+        } catch (const std::exception &e) {
+          std::cerr << "Error awaiting result: " << e.what() << std::endl;
+          return EXIT_FAILURE;
         }
       } else {
         std::cerr << "Error: File not found: " << file_path << std::endl;

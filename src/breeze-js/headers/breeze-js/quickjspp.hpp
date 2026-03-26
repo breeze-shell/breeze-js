@@ -37,9 +37,6 @@
 #include "async_simple/coro/Lazy.h"
 #endif
 
-namespace breeze {
-extern thread_local bool is_thread_js_main;
-}
 #if defined(__cpp_rtti)
 #define QJSPP_TYPENAME(...) (typeid(__VA_ARGS__).name())
 #else
@@ -1319,16 +1316,19 @@ public:
 
   Value(const Value &rhs) noexcept {
     ctx = rhs.ctx;
+    ctx_holder = rhs.ctx_holder;
     v = JS_DupValue(ctx, rhs.v);
   }
 
   Value(Value &&rhs) noexcept {
     std::swap(ctx, rhs.ctx);
+    std::swap(ctx_holder, rhs.ctx_holder);
     v = rhs.v;
   }
 
   Value &operator=(Value rhs) noexcept {
     std::swap(ctx, rhs.ctx);
+    std::swap(ctx_holder, rhs.ctx_holder);
     std::swap(v, rhs.v);
     return *this;
   }
@@ -1346,10 +1346,7 @@ public:
 
   bool operator!=(const Value &rhs) const { return !((*this) == rhs); }
 
-  ~Value() {
-    if (ctx && (ctx_holder.has_value() && !ctx_holder.value().expired()))
-      JS_FreeValue(ctx, v);
-  }
+  ~Value();
 
   bool isError() const { return JS_IsError(ctx, v); }
 
@@ -1358,9 +1355,8 @@ public:
    * @return type returned by js_traits<std::decay_t<T>>::unwrap that should be
    * implicitly convertible to T
    * */
-  template <typename T> auto as() const {
-    return js_traits<std::decay_t<T>>::unwrap(ctx, v);
-  }
+  template <typename T>
+  decltype(js_traits<std::decay_t<T>>::unwrap(std::declval<JSContext *>(), std::declval<JSValueConst>())) as() const;
 
   JSValue release() noexcept // dont call freevalue
   {
@@ -1474,28 +1470,6 @@ public:
   }
 };
 
-inline async_simple::coro::Lazy<Value> Value::await() {
-  if (!ctx)
-    throw std::runtime_error{"Cannot await on Value with no JSContext"};
-
-  auto state = JS_PROMISE_PENDING;
-  while (true) {
-    state = JS_PromiseState(ctx, v);
-    if (state == JS_PROMISE_REJECTED) {
-      JS_Throw(ctx, JS_PromiseResult(ctx, v));
-      throw exception{ctx};
-    } else if (state == JS_PROMISE_FULFILLED) {
-
-      co_return Value{weakFromContext(ctx), JS_PromiseResult(ctx, v)};
-    } else if (state == JS_PROMISE_PENDING) {
-      // still pending, continue waiting
-    } else {
-      co_return *this;
-    }
-    co_await async_simple::coro::Yield{};
-  }
-}
-
 /** Thin wrapper over JSRuntime * rt
  * Calls JS_FreeRuntime on destruction. noncopyable.
  */
@@ -1573,12 +1547,12 @@ class Context : public std::enable_shared_from_this<Context> {
 public:
   JSContext *ctx;
   std::optional<JSValue> current_exception;
+  void *script_ctx = nullptr;
 
   thread_local static Context *current;
-  // for starting jobs quickly
-  std::condition_variable js_job_start_cv = {};
-  std::mutex js_job_start_mutex = {};
-  bool has_pending_job = false;
+
+  void postTask(std::function<void()> task);
+  bool isOnJsThread() const;
   /** Module wrapper
    * Workaround for lack of opaque pointer for module load function by keeping a
    * list of modules in qjs::Context.
@@ -1977,10 +1951,8 @@ struct js_traits<std::function<R(Args...)>, int> {
       if (weak.expired())
         throw qjs_context_destroyed_exception{};
       auto &ctx = Context::get(jsfun_obj.ctx);
-      std::promise<std::expected<JSValue, exception>> promise;
-      auto future = promise.get_future();
 
-      auto work = [&]() {
+      auto work = [&]() -> std::expected<JSValue, std::exception_ptr> {
         const int argc = sizeof...(Args);
         JSValue argv[std::max(1, argc)];
         detail::wrap_args(jsfun_obj.ctx, argv, std::forward<Args>(args)...);
@@ -1988,24 +1960,29 @@ struct js_traits<std::function<R(Args...)>, int> {
                                  const_cast<JSValueConst *>(argv));
         for (int i = 0; i < argc; i++)
           JS_FreeValue(jsfun_obj.ctx, argv[i]);
-        promise.set_value(result);
-
-        if (JS_IsException(result))
-          promise.set_exception(
+        if (JS_IsException(result)) {
+          return std::unexpected(
               std::make_exception_ptr(exception{jsfun_obj.ctx}));
+        }
+        return result;
       };
 
-      if (!breeze::is_thread_js_main) {
-        ctx.enqueueJob(work);
-      } else {
-        work();
+      if (ctx.isOnJsThread()) {
+        auto result = work();
+        if (!result)
+          std::rethrow_exception(result.error());
+        return detail::unwrap_free<R>(jsfun_obj.ctx, result.value());
       }
 
+      std::promise<std::expected<JSValue, std::exception_ptr>> promise;
+      auto future = promise.get_future();
+      ctx.postTask([&]() {
+        promise.set_value(work());
+      });
       wait_with_msgloop([&future]() { future.wait(); });
       auto result = future.get();
       if (!result)
-        throw result.error();
-
+        std::rethrow_exception(result.error());
       return detail::unwrap_free<R>(jsfun_obj.ctx, result.value());
     };
   }
@@ -2240,35 +2217,147 @@ template <typename Key> property_proxy<Key>::operator Value() const {
 } // namespace detail
 
 template <typename Function> void Context::enqueueJob(Function &&job) {
-  std::lock_guard<std::mutex> lock(js_job_start_mutex);
+  postTask(std::forward<Function>(job));
+}
 
-  JSValue job_val =
-      js_traits<std::function<void()>>::wrap(ctx, std::forward<Function>(job));
-  JSValueConst arg = job_val;
-  int err = JS_EnqueueJob(
-      ctx,
-      [](JSContext *ctx, int argc, JSValueConst *argv) {
+inline Value::~Value() {
+  if (!ctx)
+    return;
+  if (!ctx_holder.has_value() || ctx_holder.value().expired())
+    return;
+  auto locked = ctx_holder.value().lock();
+  if (!locked)
+    return;
+  if (locked->script_ctx && !locked->isOnJsThread()) {
+    // Post free to JS thread
+    auto captured_ctx = ctx;
+    auto captured_v = v;
+    locked->postTask([captured_ctx, captured_v]() {
+      JS_FreeValue(captured_ctx, captured_v);
+    });
+  } else {
+    JS_FreeValue(ctx, v);
+  }
+}
+
+template <typename T>
+inline decltype(js_traits<std::decay_t<T>>::unwrap(std::declval<JSContext *>(), std::declval<JSValueConst>())) Value::as() const {
+  using R = decltype(js_traits<std::decay_t<T>>::unwrap(ctx, v));
+  if (ctx_holder.has_value() && !ctx_holder.value().expired()) {
+    auto locked = ctx_holder.value().lock();
+    if (locked && locked->script_ctx && !locked->isOnJsThread()) {
+      std::promise<R> promise;
+      auto future = promise.get_future();
+      auto captured_ctx = ctx;
+      auto captured_v = v;
+      locked->postTask([&promise, captured_ctx, captured_v]() {
         try {
-          assert(argc >= 1);
-          js_traits<std::function<void()>>::unwrap(ctx, argv[0])();
-        } catch (exception) {
-          return JS_EXCEPTION;
-        } catch (std::exception const &err) {
-          JS_ThrowInternalError(ctx, "%s", err.what());
-          return JS_EXCEPTION;
+          promise.set_value(js_traits<std::decay_t<T>>::unwrap(captured_ctx, captured_v));
         } catch (...) {
-          JS_ThrowInternalError(ctx, "Unknown error");
-          return JS_EXCEPTION;
+          promise.set_exception(std::current_exception());
         }
-        return JS_UNDEFINED;
-      },
-      1, &arg);
+      });
+      wait_with_msgloop([&future]() { future.wait(); });
+      return future.get();
+    }
+  }
+  return js_traits<std::decay_t<T>>::unwrap(ctx, v);
+}
 
-  has_pending_job = true;
-  js_job_start_cv.notify_all();
-  JS_FreeValue(ctx, job_val);
-  if (err < 0)
-    throw exception{ctx};
+inline async_simple::coro::Lazy<Value> Value::await() {
+  if (!ctx)
+    throw std::runtime_error{"Cannot await on Value with no JSContext"};
+
+  struct SharedState {
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool done = false;
+    std::optional<Value> result;
+    std::optional<std::string> error;
+  };
+
+  auto state = std::make_shared<SharedState>();
+  auto weak = weakFromContext(ctx);
+  auto captured_ctx = ctx;
+  // NOTE: We do NOT call JS_DupValue here because we may be on a non-JS thread.
+  // The DupValue is done inside the first posted task on the JS thread.
+  auto raw_v = v;
+
+  auto poll_fn = std::make_shared<std::function<void()>>();
+  // First task: dup the value on the JS thread, then start polling
+  auto &ctx_ref = Context::get(ctx);
+  ctx_ref.postTask([state, weak, captured_ctx, raw_v, poll_fn]() {
+    if (weak.expired()) {
+      std::lock_guard lock(state->mtx);
+      state->error = "Context destroyed while awaiting promise";
+      state->done = true;
+      state->cv.notify_all();
+      return;
+    }
+    // Now we're on the JS thread, safe to DupValue
+    auto captured_v = JS_DupValue(captured_ctx, raw_v);
+
+    *poll_fn = [state, weak, captured_ctx, captured_v, poll_fn]() {
+      if (weak.expired()) {
+        std::lock_guard lock(state->mtx);
+        state->error = "Context destroyed while awaiting promise";
+        state->done = true;
+        state->cv.notify_all();
+        JS_FreeValue(captured_ctx, captured_v);
+        *poll_fn = nullptr;
+        return;
+      }
+
+      auto promise_state = JS_PromiseState(captured_ctx, captured_v);
+      if (promise_state == JS_PROMISE_REJECTED) {
+        auto reason = JS_PromiseResult(captured_ctx, captured_v);
+        const char *str = JS_ToCString(captured_ctx, reason);
+        std::string error_str = str ? str : "Unknown rejection";
+        JS_FreeCString(captured_ctx, str);
+        JS_FreeValue(captured_ctx, reason);
+        std::lock_guard lock(state->mtx);
+        state->error = std::move(error_str);
+        state->done = true;
+        state->cv.notify_all();
+        JS_FreeValue(captured_ctx, captured_v);
+        *poll_fn = nullptr;
+      } else if (promise_state == JS_PROMISE_FULFILLED) {
+        auto result = JS_PromiseResult(captured_ctx, captured_v);
+        std::lock_guard lock(state->mtx);
+        state->result.emplace(Value{weak, std::move(result)});
+        state->done = true;
+        state->cv.notify_all();
+        JS_FreeValue(captured_ctx, captured_v);
+        *poll_fn = nullptr;
+      } else if (promise_state == JS_PROMISE_PENDING) {
+        // Re-post self to check again
+        auto &ctx_ref = Context::get(captured_ctx);
+        ctx_ref.postTask(*poll_fn);
+      } else {
+        // Not a promise, return the value directly
+        std::lock_guard lock(state->mtx);
+        state->result.emplace(
+            Value{weak, JS_DupValue(captured_ctx, captured_v)});
+        state->done = true;
+        state->cv.notify_all();
+        JS_FreeValue(captured_ctx, captured_v);
+        *poll_fn = nullptr;
+      }
+    };
+    // Run the first poll immediately (we're already on JS thread)
+    (*poll_fn)();
+  });
+
+  // Block until the poll completes (runs on executor thread via syncAwait)
+  {
+    std::unique_lock lock(state->mtx);
+    state->cv.wait(lock, [&state]() { return state->done; });
+  }
+
+  if (state->error) {
+    throw std::runtime_error{*state->error};
+  }
+  co_return std::move(*state->result);
 }
 
 inline Context &exception::context() const { return Context::get(ctx); }
@@ -2420,43 +2509,62 @@ template <typename T> struct js_traits<async_simple::coro::Lazy<T>> {
     JS_SetOpaque(obj_holder, lazy_ptr);
     JSValue resolving_funcs[2];
     JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
-    JS_SetPropertyStr(ctx, promise, "__lazy", obj_holder);
-    JS_SetPropertyStr(ctx, obj_holder, "__promise", promise);
+    // SetPropertyStr consumes its val argument, so we need to DupValue
+    // the values that we still need after the call.
+    JS_SetPropertyStr(ctx, promise, "__lazy", JS_DupValue(ctx, obj_holder));
+    JS_SetPropertyStr(ctx, obj_holder, "__promise", JS_DupValue(ctx, promise));
 
-    lazy_ptr->lazy.start([ctx, resolving_funcs](
+    // Now free obj_holder since we're done with our reference
+    // (the promise.__lazy property holds the reference)
+    JS_FreeValue(ctx, obj_holder);
+
+    // DupValue both resolving_funcs for the capture
+    JSValue resolve_dup = JS_DupValue(ctx, resolving_funcs[0]);
+    JSValue reject_dup = JS_DupValue(ctx, resolving_funcs[1]);
+
+    auto weak = Context::get(ctx).weak_from_this();
+
+    lazy_ptr->lazy.start([ctx, resolve_dup, reject_dup, weak](
                              async_simple::Try<T> &&result) mutable {
-      if (ctx) {
-        Context &context = Context::get(ctx);
-        context.enqueueJob([=, result = std::move(result)]() mutable {
-          if (result.hasError()) {
-            try {
-              std::rethrow_exception(result.getException());
-            } catch (const std::exception &e) {
-              JSValue error_value = JS_NewString(ctx, e.what());
-
-              JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, &error_value);
-            } catch (...) {
-              JSValue error_value = JS_NewString(ctx, "Unknown error");
-              JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, &error_value);
-            }
-          } else {
-            if constexpr (std::is_void_v<T>) {
-              // If T is void, we resolve the promise without a value
-              JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 0, nullptr);
-            } else {
-              JSValue resolved_value = js_traits<T>::wrap(ctx, result.value());
-              JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 1,
-                      &resolved_value);
-              JS_FreeValue(ctx, resolved_value);
-            }
-          }
-
-          JS_FreeValue(ctx, resolving_funcs[0]);
-          // ↓ This crashes QuickJS, why??
-          // JS_FreeValue(ctx, resolving_funcs[1]);
-        });
+      auto locked = weak.lock();
+      if (!locked) {
+        // Context gone, can't free JS values safely
+        return;
       }
+
+      locked->postTask([ctx, resolve_dup, reject_dup,
+                        result_ptr = std::make_shared<async_simple::Try<T>>(std::move(result))]() mutable {
+        auto &result = *result_ptr;
+        if (result.hasError()) {
+          try {
+            std::rethrow_exception(result.getException());
+          } catch (const std::exception &e) {
+            JSValue error_value = JS_NewString(ctx, e.what());
+            JS_Call(ctx, reject_dup, JS_UNDEFINED, 1, &error_value);
+            JS_FreeValue(ctx, error_value);
+          } catch (...) {
+            JSValue error_value = JS_NewString(ctx, "Unknown error");
+            JS_Call(ctx, reject_dup, JS_UNDEFINED, 1, &error_value);
+            JS_FreeValue(ctx, error_value);
+          }
+        } else {
+          if constexpr (std::is_void_v<T>) {
+            JS_Call(ctx, resolve_dup, JS_UNDEFINED, 0, nullptr);
+          } else {
+            JSValue resolved_value = js_traits<T>::wrap(ctx, result.value());
+            JS_Call(ctx, resolve_dup, JS_UNDEFINED, 1, &resolved_value);
+            JS_FreeValue(ctx, resolved_value);
+          }
+        }
+
+        JS_FreeValue(ctx, resolve_dup);
+        JS_FreeValue(ctx, reject_dup);
+      });
     });
+
+    // Free the original refs (we DupValue'd for the capture)
+    JS_FreeValue(ctx, resolving_funcs[0]);
+    JS_FreeValue(ctx, resolving_funcs[1]);
 
     return promise;
   }

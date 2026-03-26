@@ -20,7 +20,6 @@
 
 namespace breeze {
 
-thread_local bool is_thread_js_main = false;
 std::wstring utf8_to_wstring(const std::string &str) {
   std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
   try {
@@ -109,8 +108,20 @@ globalThis.URLSearchParams = breeze.infra.URLSearchParams;
   }
 }
 script_context::script_context() : rt{}, js{} {}
+
+void script_context::post(std::function<void()> task) {
+  task_queue.enqueue(std::move(task));
+  task_queue_size.fetch_add(1, std::memory_order_release);
+  task_queue_cv.notify_one();
+}
+
+bool script_context::is_js_thread() const {
+  return std::this_thread::get_id() == js_thread_id_;
+}
+
 void script_context::reset_runtime() {
   *stop_signal = true;
+  task_queue_cv.notify_all();
   stop_signal = std::make_shared<int>(false);
 
   if (js_thread)
@@ -121,10 +132,14 @@ void script_context::reset_runtime() {
   auto future = p_finished.get_future();
 
   js_thread = std::thread([&, this, ss = stop_signal]() {
-    is_thread_js_main = true;
+    js_thread_id_ = std::this_thread::get_id();
+
     rt = std::make_shared<qjs::Runtime>();
     JS_UpdateStackTop(rt->rt);
+    JS_SetRuntimeOpaque(rt->rt, this);
+
     js = std::make_shared<qjs::Context>(*rt);
+    js->script_ctx = this;
 
     js->moduleLoader = [&](std::string_view module_name) {
       auto module_path = module_base / (std::string(module_name) + ".js");
@@ -141,30 +156,22 @@ void script_context::reset_runtime() {
 
     p_finished.set_value();
 
-    while (auto ptr = js) {
-      if (ptr->ctx) {
-        while (JS_IsJobPending(rt->rt) && !*ss) {
-          auto ctx = ptr->ctx;
-          auto ctx1 = ctx;
-          auto res = JS_ExecutePendingJob(rt->rt, &ctx1);
-          if (res == -999) {
-            dbgout("JS loop critical error! Restarting...");
-            return;
-          }
-          std::lock_guard lock(ptr->js_job_start_mutex);
-          ptr->has_pending_job = JS_IsJobPending(rt->rt);
-        }
+    while (!*ss) {
+      // Drain all pending tasks (JS jobs + C++ tasks via JS_ExecutePendingJob)
+      JSContext *ctx1;
+      while (JS_ExecutePendingJob(rt->rt, &ctx1) > 0 && !*ss) {
+        // keep draining
       }
+
       if (*ss)
         break;
-      std::unique_lock lock(js->js_job_start_mutex);
-      if (js->has_pending_job)
-        continue;
-      js->js_job_start_cv.wait_for(lock, std::chrono::milliseconds(100), [&]() {
-        return js->has_pending_job || *ss;
+
+      // Wait for new tasks or stop signal
+      std::unique_lock lock(cv_mutex);
+      task_queue_cv.wait(lock, [&]() {
+        return task_queue_size.load(std::memory_order_acquire) > 0 || *ss;
       });
     }
-    is_thread_js_main = false;
   });
 
   future.wait();
@@ -188,7 +195,7 @@ script_context::eval_file(const std::filesystem::path &path) {
 }
 
 std::expected<qjs::Value, std::string>
-script_context::eval_string(const std::string &script,
+script_context::eval_string_impl(const std::string &script,
                             std::string_view filename) {
   try {
     JS_UpdateStackTop(rt->rt);
@@ -232,6 +239,18 @@ script_context::eval_string(const std::string &script,
         "Exception in file: " + std::string(filename) + " " + e.what();
     return std::unexpected(error_msg);
   }
+}
+
+std::expected<qjs::Value, std::string>
+script_context::eval_string(const std::string &script,
+                            std::string_view filename) {
+  if (is_js_thread()) {
+    return eval_string_impl(script, filename);
+  }
+
+  return post_sync([this, script, filename = std::string(filename)]() {
+    return eval_string_impl(script, filename);
+  });
 }
 
 void script_context::watch_folder(const std::filesystem::path &path,
@@ -294,7 +313,16 @@ std::string script_context::current_exception_string() {
 script_context::~script_context() {
   if (js_thread && js_thread->joinable()) {
     *stop_signal = true;
+    task_queue_cv.notify_all();
     js_thread->join();
+  }
+  // Drain any remaining tasks that were posted after the JS thread stopped
+  // (e.g., Value destructors posting JS_FreeValue from other threads).
+  // We run them here on the current thread since the JS thread is gone
+  // and we're about to destroy the runtime anyway.
+  std::function<void()> task;
+  while (task_queue.try_dequeue(task)) {
+    task();
   }
 }
 } // namespace breeze

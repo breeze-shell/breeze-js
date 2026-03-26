@@ -1956,6 +1956,7 @@ void JS_SetSharedArrayBufferFunctions(JSRuntime *rt,
 }
 
 /* return 0 if OK, < 0 if exception */
+#ifndef BREEZE_CUSTOM_JOB_QUEUE
 int JS_EnqueueJob(JSContext *ctx, JSJobFunc *job_func,
                   int argc, JSValue *argv)
 {
@@ -2013,6 +2014,7 @@ int JS_ExecutePendingJob(JSRuntime *rt, JSContext **pctx)
     *pctx = ctx;
     return ret;
 }
+#endif /* !BREEZE_CUSTOM_JOB_QUEUE */
 
 static inline uint32_t atom_get_free(const JSAtomStruct *p)
 {
@@ -2088,6 +2090,7 @@ void JS_FreeRuntime(JSRuntime *rt)
     rt->in_free = TRUE;
     JS_FreeValueRT(rt, rt->current_exception);
 
+#ifndef BREEZE_CUSTOM_JOB_QUEUE
     list_for_each_safe(el, el1, &rt->job_list) {
         JSJobEntry *e = list_entry(el, JSJobEntry, link);
         for(i = 0; i < e->argc; i++)
@@ -2095,6 +2098,7 @@ void JS_FreeRuntime(JSRuntime *rt)
         js_free_rt(rt, e);
     }
     init_list_head(&rt->job_list);
+#endif
 
     JS_RunGC(rt);
 

@@ -6,7 +6,7 @@ set_warnings("all")
 add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
 
-add_requires("cxxopts", "ctre")
+add_requires("cxxopts", "ctre", "concurrentqueue")
 
 add_requires("yalantinglibs 0c98464dd202aaa6275a8da3297719a436b8a51a", {
     configs = {
@@ -30,6 +30,7 @@ includes("bindgen.lua")
 target("breeze-quickjs-ng")
     set_kind("static")
     set_languages("c23", "c++23")
+    add_defines("BREEZE_CUSTOM_JOB_QUEUE")
     if is_plat("linux", "bsd", "cross") then
         add_syslinks("m", "pthread")
     end
@@ -43,6 +44,7 @@ target("breeze-js-runtime")
     add_deps("breeze-quickjs-ng", { public = true })
     add_packages("yalantinglibs", { public = true })
     add_packages("ctre")
+    add_packages("concurrentqueue", { public = true })
     add_rules("breezejs.bindgen", {
         name_filter = "breeze::js",
         ts_module_name = "breeze",
