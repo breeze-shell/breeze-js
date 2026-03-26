@@ -112,6 +112,13 @@ script_context::script_context() : rt{}, js{} {}
 void script_context::post(std::function<void()> task) {
   task_queue.enqueue(std::move(task));
   task_queue_size.fetch_add(1, std::memory_order_release);
+  // Must lock cv_mutex before notify to prevent lost wake-ups.
+  // Without the lock, notify_one() can fire between the JS thread's
+  // predicate check and its entry into the actual wait, causing the
+  // signal to be lost and the JS thread to sleep forever.
+  {
+    std::lock_guard lock(cv_mutex);
+  }
   task_queue_cv.notify_one();
 }
 
