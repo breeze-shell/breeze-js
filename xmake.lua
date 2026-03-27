@@ -36,8 +36,8 @@ target("breeze-quickjs-ng")
     add_defines("BREEZE_CUSTOM_JOB_QUEUE")
     if is_plat("linux", "bsd", "cross") then
         add_syslinks("m", "pthread")
-        add_defines("POSIX_C_SOURCE=200809L")
-        add_defines("GNU_SOURCE")
+        add_defines("_POSIX_C_SOURCE=199309L")
+        add_defines("_GNU_SOURCE")
     end
     add_files("src/quickjs/*.c")
     add_headerfiles("src/quickjs/headers/(**.h)")
