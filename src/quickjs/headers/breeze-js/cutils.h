@@ -50,8 +50,10 @@ extern "C" {
 #ifndef CLOCK_MONOTONIC
 #define CLOCK_MONOTONIC 1
 #endif
-extern int clock_gettime(clockid_t clk_id, struct timespec *tp);
-extern int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id);
+typedef int breeze_clockid_t; 
+#define clockid_t breeze_clockid_t
+extern int clock_gettime(int clk_id, struct timespec *tp);
+extern int pthread_condattr_setclock(pthread_condattr_t *attr, int clock_id);
 #elif defined(__FreeBSD__)
 #include <malloc_np.h>
 #elif defined(_WIN32)
