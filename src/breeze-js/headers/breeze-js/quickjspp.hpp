@@ -687,6 +687,9 @@ concept is_callable_concept = requires(T t) {
   { &T::operator() };
 };
 
+template <typename T> struct is_byte_vector : std::false_type {};
+template <> struct is_byte_vector<std::vector<uint8_t>> : std::true_type {};
+
 /** Conversion from const std::variant */
 template <typename... Ts> struct js_traits<std::variant<Ts...>> {
   static JSValue wrap(JSContext *ctx, std::variant<Ts...> value) noexcept {
@@ -716,8 +719,6 @@ template <typename... Ts> struct js_traits<std::variant<Ts...>> {
   };
   template <typename T> struct is_vector : std::false_type {};
   template <typename T> struct is_vector<std::vector<T>> : std::true_type {};
-  template <typename T> struct is_byte_vector : std::false_type {};
-  template <> struct is_byte_vector<std::vector<uint8_t>> : std::true_type {};
   template <typename T> struct is_pair : std::false_type {};
   template <typename U, typename V>
   struct is_pair<std::pair<U, V>> : std::true_type {};
