@@ -32,11 +32,11 @@ includes("bindgen.lua")
 
 target("breeze-quickjs-ng")
     set_kind("static")
-    set_languages("c23", "c++23")
+    set_languages("c11", "c++23")
     add_defines("BREEZE_CUSTOM_JOB_QUEUE")
     if is_plat("linux", "bsd", "cross") then
         add_syslinks("m", "pthread")
-        add_defines("POSIX_C_SOURCE=199309L")
+        add_defines("POSIX_C_SOURCE=200809L")
         add_defines("GNU_SOURCE")
     end
     add_files("src/quickjs/*.c")
