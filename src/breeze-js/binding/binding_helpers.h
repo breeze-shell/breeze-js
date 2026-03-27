@@ -1,6 +1,8 @@
 #pragma once
+#include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace async_simple::coro {

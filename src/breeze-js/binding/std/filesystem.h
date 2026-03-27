@@ -41,5 +41,12 @@ struct filesystem {
 
   static async_simple::coro::Lazy<bool> writeStringToFile(std::string path,
                                                           std::string content);
+
+  // Binary file I/O (returns/accepts ArrayBuffer on JS side)
+  static std::vector<uint8_t> readFileSync(std::string path);
+  static async_simple::coro::Lazy<std::vector<uint8_t>>
+  readFile(std::string path);
+  static async_simple::coro::Lazy<bool> writeFile(std::string path,
+                                                   std::vector<uint8_t> content);
 };
 } // namespace breeze::js

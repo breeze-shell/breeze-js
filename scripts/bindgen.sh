@@ -1,0 +1,1 @@
+npx breeze-bindgen@latest -i src/breeze-js/binding/binding_types.breezejs.cc -o src/breeze-js/binding --cppBindingOutputFile binding_types.breezejs.qjs.h --tsDefinitionOutputFile binding_types.breezejs.d.ts --tsModuleName breeze --nameFilter breeze::js --clang /usr/bin/clang++

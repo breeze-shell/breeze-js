@@ -16,6 +16,7 @@
 #include <future>
 #include <ios>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -235,6 +236,423 @@ template <> struct js_traits<std::string_view> {
   }
 };
 
+/**
+ * 转换 std::map 到 JavaScript 对象
+ * 注意：需要确保 Key 类型可以转换为字符串
+ */
+template <typename Key, typename Value>
+struct js_traits<std::map<Key, Value>> {
+    static JSValue wrap(JSContext* ctx, const std::map<Key, Value>& map) noexcept {
+        try {
+            auto js_obj = JS_NewObject(ctx);
+            if (JS_IsException(js_obj)) {
+                return JS_EXCEPTION;
+            }
+            
+            for (const auto& [key, value] : map) {
+                // 先将key转换为JSValue，然后转换为字符串
+                JSValue key_js = js_traits<Key>::wrap(ctx, key);
+                if (JS_IsException(key_js)) {
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+                
+                // 将key转换为字符串
+                size_t len;
+                const char* key_str = JS_ToCStringLen(ctx, &len, key_js);
+                if (!key_str) {
+                    JS_FreeValue(ctx, key_js);
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+                
+                // 转换值
+                JSValue js_value = js_traits<Value>::wrap(ctx, value);
+                if (JS_IsException(js_value)) {
+                    JS_FreeCString(ctx, key_str);
+                    JS_FreeValue(ctx, key_js);
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+                
+                // 设置属性
+                int ret = JS_SetPropertyStr(ctx, js_obj, key_str, js_value);
+                JS_FreeCString(ctx, key_str);
+                JS_FreeValue(ctx, key_js);
+                
+                if (ret < 0) {
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+            }
+            
+            return js_obj;
+        } catch (const exception&) {
+            return JS_EXCEPTION;
+        } catch (const std::exception& err) {
+            JS_ThrowInternalError(ctx, "std::map wrap error: %s", err.what());
+            return JS_EXCEPTION;
+        } catch (...) {
+            JS_ThrowInternalError(ctx, "Unknown error in std::map wrap");
+            return JS_EXCEPTION;
+        }
+    }
+    
+    static std::map<Key, Value> unwrap(JSContext* ctx, JSValueConst js_obj) {
+        if (JS_VALUE_GET_TAG(js_obj) != JS_TAG_OBJECT) {
+            JS_ThrowTypeError(ctx, "Expected object for std::map unwrap");
+            throw exception{ctx};
+        }
+
+        std::map<Key, Value> result;
+
+        JSPropertyEnum* tab = nullptr;
+        uint32_t len = 0;
+
+        int ret = JS_GetOwnPropertyNames(ctx, &tab, &len, js_obj,
+                                         JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY);
+        if (ret < 0) {
+            throw exception{ctx};
+        }
+
+        for (uint32_t i = 0; i < len; i++) {
+            const char* prop_name = JS_AtomToCString(ctx, tab[i].atom);
+            if (!prop_name) {
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw exception{ctx};
+            }
+
+            JSValue prop_value = JS_GetProperty(ctx, js_obj, tab[i].atom);
+            if (JS_IsException(prop_value)) {
+                JS_FreeCString(ctx, prop_name);
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw exception{ctx};
+            }
+
+            try {
+                JSValue key_js = JS_NewStringLen(ctx, prop_name, strlen(prop_name));
+                if (JS_IsException(key_js)) {
+                    JS_FreeCString(ctx, prop_name);
+                    JS_FreeValue(ctx, prop_value);
+                    JS_FreePropertyEnum(ctx, tab, len);
+                    throw exception{ctx};
+                }
+
+                Key key = js_traits<Key>::unwrap(ctx, key_js);
+                JS_FreeValue(ctx, key_js);
+                Value value = js_traits<Value>::unwrap(ctx, prop_value);
+                result[key] = value;
+
+            } catch (const exception&) {
+                JS_FreeCString(ctx, prop_name);
+                JS_FreeValue(ctx, prop_value);
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw;
+            }
+
+            JS_FreeCString(ctx, prop_name);
+            JS_FreeValue(ctx, prop_value);
+        }
+
+        JS_FreePropertyEnum(ctx, tab, len);
+        return result;
+    }
+};
+
+/**
+ * 转换 std::unordered_map 到 JavaScript 对象
+ */
+template <typename Key, typename Value>
+struct js_traits<std::unordered_map<Key, Value>> {
+    static JSValue wrap(JSContext* ctx, const std::unordered_map<Key, Value>& map) noexcept {
+        try {
+            auto js_obj = JS_NewObject(ctx);
+            if (JS_IsException(js_obj)) {
+                return JS_EXCEPTION;
+            }
+            
+            for (const auto& [key, value] : map) {
+                // 先将key转换为JSValue，然后转换为字符串
+                JSValue key_js = js_traits<Key>::wrap(ctx, key);
+                if (JS_IsException(key_js)) {
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+                
+                // 将key转换为字符串
+                size_t len;
+                const char* key_str = JS_ToCStringLen(ctx, &len, key_js);
+                if (!key_str) {
+                    JS_FreeValue(ctx, key_js);
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+                
+                // 转换值
+                JSValue js_value = js_traits<Value>::wrap(ctx, value);
+                if (JS_IsException(js_value)) {
+                    JS_FreeCString(ctx, key_str);
+                    JS_FreeValue(ctx, key_js);
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+                
+                // 设置属性
+                int ret = JS_SetPropertyStr(ctx, js_obj, key_str, js_value);
+                JS_FreeCString(ctx, key_str);
+                JS_FreeValue(ctx, key_js);
+                
+                if (ret < 0) {
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+            }
+            
+            return js_obj;
+        } catch (const exception&) {
+            return JS_EXCEPTION;
+        } catch (const std::exception& err) {
+            JS_ThrowInternalError(ctx, "std::unordered_map wrap error: %s", err.what());
+            return JS_EXCEPTION;
+        } catch (...) {
+            JS_ThrowInternalError(ctx, "Unknown error in std::unordered_map wrap");
+            return JS_EXCEPTION;
+        }
+    }
+    
+    static std::unordered_map<Key, Value> unwrap(JSContext* ctx, JSValueConst js_obj) {
+        if (JS_VALUE_GET_TAG(js_obj) != JS_TAG_OBJECT) {
+            JS_ThrowTypeError(ctx, "Expected object for std::unordered_map unwrap");
+            throw exception{ctx};
+        }
+
+        std::unordered_map<Key, Value> result;
+
+        JSPropertyEnum* tab = nullptr;
+        uint32_t len = 0;
+
+        int ret = JS_GetOwnPropertyNames(ctx, &tab, &len, js_obj,
+                                         JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY);
+        if (ret < 0) {
+            throw exception{ctx};
+        }
+
+        for (uint32_t i = 0; i < len; i++) {
+            const char* prop_name = JS_AtomToCString(ctx, tab[i].atom);
+            if (!prop_name) {
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw exception{ctx};
+            }
+
+            JSValue prop_value = JS_GetProperty(ctx, js_obj, tab[i].atom);
+            if (JS_IsException(prop_value)) {
+                JS_FreeCString(ctx, prop_name);
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw exception{ctx};
+            }
+
+            try {
+                JSValue key_js = JS_NewStringLen(ctx, prop_name, strlen(prop_name));
+                if (JS_IsException(key_js)) {
+                    JS_FreeCString(ctx, prop_name);
+                    JS_FreeValue(ctx, prop_value);
+                    JS_FreePropertyEnum(ctx, tab, len);
+                    throw exception{ctx};
+                }
+
+                Key key = js_traits<Key>::unwrap(ctx, key_js);
+                JS_FreeValue(ctx, key_js);
+                Value value = js_traits<Value>::unwrap(ctx, prop_value);
+                result[key] = value;
+
+            } catch (const exception&) {
+                JS_FreeCString(ctx, prop_name);
+                JS_FreeValue(ctx, prop_value);
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw;
+            }
+
+            JS_FreeCString(ctx, prop_name);
+            JS_FreeValue(ctx, prop_value);
+        }
+
+        JS_FreePropertyEnum(ctx, tab, len);
+        return result;
+    }
+};
+
+/**
+ * 为字符串键提供优化版本（避免额外的类型转换）
+ */
+template <typename Value>
+struct js_traits<std::map<std::string, Value>> {
+    static JSValue wrap(JSContext* ctx, const std::map<std::string, Value>& map) noexcept {
+        try {
+            auto js_obj = JS_NewObject(ctx);
+            if (JS_IsException(js_obj)) {
+                return JS_EXCEPTION;
+            }
+            
+            for (const auto& [key, value] : map) {
+                JSValue js_value = js_traits<Value>::wrap(ctx, value);
+                if (JS_IsException(js_value)) {
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+                
+                int ret = JS_SetPropertyStr(ctx, js_obj, key.c_str(), js_value);
+                if (ret < 0) {
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+            }
+            
+            return js_obj;
+        } catch (const exception&) {
+            return JS_EXCEPTION;
+        } catch (const std::exception& err) {
+            JS_ThrowInternalError(ctx, "std::map<std::string> wrap error: %s", err.what());
+            return JS_EXCEPTION;
+        } catch (...) {
+            JS_ThrowInternalError(ctx, "Unknown error in std::map<std::string> wrap");
+            return JS_EXCEPTION;
+        }
+    }
+    
+    static std::map<std::string, Value> unwrap(JSContext* ctx, JSValueConst js_obj) {
+        if (JS_VALUE_GET_TAG(js_obj) != JS_TAG_OBJECT) {
+            JS_ThrowTypeError(ctx, "Expected object for std::map unwrap");
+            throw exception{ctx};
+        }
+
+        std::map<std::string, Value> result;
+
+        JSPropertyEnum* tab = nullptr;
+        uint32_t len = 0;
+
+        int ret = JS_GetOwnPropertyNames(ctx, &tab, &len, js_obj,
+                                         JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY);
+        if (ret < 0) {
+            throw exception{ctx};
+        }
+
+        for (uint32_t i = 0; i < len; i++) {
+            const char* prop_name = JS_AtomToCString(ctx, tab[i].atom);
+            if (!prop_name) {
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw exception{ctx};
+            }
+
+            JSValue prop_value = JS_GetProperty(ctx, js_obj, tab[i].atom);
+            if (JS_IsException(prop_value)) {
+                JS_FreeCString(ctx, prop_name);
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw exception{ctx};
+            }
+
+            try {
+                result[prop_name] = js_traits<Value>::unwrap(ctx, prop_value);
+            } catch (const exception&) {
+                JS_FreeCString(ctx, prop_name);
+                JS_FreeValue(ctx, prop_value);
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw;
+            }
+
+            JS_FreeCString(ctx, prop_name);
+            JS_FreeValue(ctx, prop_value);
+        }
+
+        JS_FreePropertyEnum(ctx, tab, len);
+        return result;
+    }
+};
+
+// 为字符串键的unordered_map提供优化版本
+template <typename Value>
+struct js_traits<std::unordered_map<std::string, Value>> {
+    static JSValue wrap(JSContext* ctx, const std::unordered_map<std::string, Value>& map) noexcept {
+        try {
+            auto js_obj = JS_NewObject(ctx);
+            if (JS_IsException(js_obj)) {
+                return JS_EXCEPTION;
+            }
+            
+            for (const auto& [key, value] : map) {
+                JSValue js_value = js_traits<Value>::wrap(ctx, value);
+                if (JS_IsException(js_value)) {
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+                
+                int ret = JS_SetPropertyStr(ctx, js_obj, key.c_str(), js_value);
+                if (ret < 0) {
+                    JS_FreeValue(ctx, js_obj);
+                    return JS_EXCEPTION;
+                }
+            }
+            
+            return js_obj;
+        } catch (const exception&) {
+            return JS_EXCEPTION;
+        } catch (const std::exception& err) {
+            JS_ThrowInternalError(ctx, "std::unordered_map<std::string> wrap error: %s", err.what());
+            return JS_EXCEPTION;
+        } catch (...) {
+            JS_ThrowInternalError(ctx, "Unknown error in std::unordered_map<std::string> wrap");
+            return JS_EXCEPTION;
+        }
+    }
+    
+    static std::unordered_map<std::string, Value> unwrap(JSContext* ctx, JSValueConst js_obj) {
+        if (JS_VALUE_GET_TAG(js_obj) != JS_TAG_OBJECT) {
+            JS_ThrowTypeError(ctx, "Expected object for std::unordered_map unwrap");
+            throw exception{ctx};
+        }
+
+        std::unordered_map<std::string, Value> result;
+
+        JSPropertyEnum* tab = nullptr;
+        uint32_t len = 0;
+
+        int ret = JS_GetOwnPropertyNames(ctx, &tab, &len, js_obj,
+                                         JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY);
+        if (ret < 0) {
+            throw exception{ctx};
+        }
+
+        for (uint32_t i = 0; i < len; i++) {
+            const char* prop_name = JS_AtomToCString(ctx, tab[i].atom);
+            if (!prop_name) {
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw exception{ctx};
+            }
+
+            JSValue prop_value = JS_GetProperty(ctx, js_obj, tab[i].atom);
+            if (JS_IsException(prop_value)) {
+                JS_FreeCString(ctx, prop_name);
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw exception{ctx};
+            }
+
+            try {
+                result[prop_name] = js_traits<Value>::unwrap(ctx, prop_value);
+            } catch (const exception&) {
+                JS_FreeCString(ctx, prop_name);
+                JS_FreeValue(ctx, prop_value);
+                JS_FreePropertyEnum(ctx, tab, len);
+                throw;
+            }
+
+            JS_FreeCString(ctx, prop_name);
+            JS_FreeValue(ctx, prop_value);
+        }
+
+        JS_FreePropertyEnum(ctx, tab, len);
+        return result;
+    }
+};
+
 /** Conversion traits for std::string */
 template <> // slower
 struct js_traits<std::string> {
@@ -298,6 +716,8 @@ template <typename... Ts> struct js_traits<std::variant<Ts...>> {
   };
   template <typename T> struct is_vector : std::false_type {};
   template <typename T> struct is_vector<std::vector<T>> : std::true_type {};
+  template <typename T> struct is_byte_vector : std::false_type {};
+  template <> struct is_byte_vector<std::vector<uint8_t>> : std::true_type {};
   template <typename T> struct is_pair : std::false_type {};
   template <typename U, typename V>
   struct is_pair<std::pair<U, V>> : std::true_type {};
@@ -336,6 +756,14 @@ template <typename... Ts> struct js_traits<std::variant<Ts...>> {
     if constexpr (is_variant<U>::value) {
       if (auto opt = js_traits<std::optional<U>>::unwrap(ctx, v))
         return *opt;
+    }
+
+    // try vector<uint8_t> as ArrayBuffer/TypedArray
+    if constexpr (is_byte_vector<U>::value) {
+      size_t size;
+      if (JS_GetArrayBuffer(ctx, &size, v) || JS_GetUint8Array(ctx, &size, v)) {
+        return js_traits<U>::unwrap(ctx, v);
+      }
     }
 
     if constexpr (is_vector<U>::value) {
@@ -402,6 +830,11 @@ template <typename... Ts> struct js_traits<std::variant<Ts...>> {
     case JS_TAG_FUNCTION_BYTECODE:
       return is_callable<T>::value;
     case JS_TAG_OBJECT:
+      if constexpr (is_byte_vector<T>::value) {
+        size_t sz;
+        if (JS_GetArrayBuffer(ctx, &sz, v) || JS_GetUint8Array(ctx, &sz, v))
+          return true;
+      }
       if (JS_IsArray(ctx, v) == 1)
         return is_vector<T>::value || is_pair<T>::value;
       if constexpr (is_shared_ptr<T>::value) {
@@ -2044,6 +2477,32 @@ struct js_traits<Function, std::enable_if_t<detail::is_callable_v<Function>>> {
   static JSValue wrap(JSContext *ctx, Functor &&functor) {
     return js_traits<decltype(std::function{std::declval<Function>()}),
                      int>::wrap(ctx, std::forward<Functor>(functor));
+  }
+};
+
+/** Specialization for std::vector<uint8_t>: maps to JS ArrayBuffer.
+ * Data is copied both ways for safety.
+ */
+template <> struct js_traits<std::vector<uint8_t>> {
+  static JSValue wrap(JSContext *ctx,
+                      const std::vector<uint8_t> &buf) noexcept {
+    return JS_NewArrayBufferCopy(ctx, buf.data(), buf.size());
+  }
+
+  static std::vector<uint8_t> unwrap(JSContext *ctx, JSValueConst v) {
+    size_t size;
+    // Try ArrayBuffer first
+    uint8_t *ptr = JS_GetArrayBuffer(ctx, &size, v);
+    if (ptr) {
+      return std::vector<uint8_t>(ptr, ptr + size);
+    }
+    // Try TypedArray (Uint8Array etc.)
+    ptr = JS_GetUint8Array(ctx, &size, v);
+    if (ptr) {
+      return std::vector<uint8_t>(ptr, ptr + size);
+    }
+    JS_ThrowTypeError(ctx, "Expected ArrayBuffer or TypedArray");
+    throw exception{ctx};
   }
 };
 

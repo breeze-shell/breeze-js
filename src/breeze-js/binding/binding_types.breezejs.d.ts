@@ -3,6 +3,34 @@
 
 declare module 'breeze' {
 
+export class Blob {
+	/**
+     *  size of the blob in bytes
+     */
+    get size(): number;
+	/**
+     *  MIME type of the blob
+     */
+    get type(): string;
+	/**
+     *  Returns the blob data as an ArrayBuffer
+      @returns ArrayBuffer
+     */
+    arrayBuffer(): ArrayBuffer
+	/**
+     *  Returns the blob data decoded as a UTF-8 string
+      @returns string
+     */
+    text(): string
+	/**
+     *  Returns a new Blob that is a subset of this Blob
+     * @param start: number | undefined
+     * @param end: number | undefined
+     * @param contentType: string | undefined
+     * @returns Blob
+     */
+    slice(start?: number | undefined, end?: number | undefined, contentType?: string | undefined): Blob
+}
 export class filesystem {
 	/**
      * 
@@ -71,6 +99,25 @@ export class filesystem {
      * @returns Promise<boolean>
      */
     static writeStringToFile(path: string, content: string): Promise<boolean>
+	/**
+     *  Binary file I/O (returns/accepts ArrayBuffer on JS side)
+     * @param path: string
+     * @returns ArrayBuffer
+     */
+    static readFileSync(path: string): ArrayBuffer
+	/**
+     * 
+     * @param path: string
+     * @returns Promise<ArrayBuffer>
+     */
+    static readFile(path: string): Promise<ArrayBuffer>
+	/**
+     * 
+     * @param path: string
+     * @param content: ArrayBuffer
+     * @returns Promise<boolean>
+     */
+    static writeFile(path: string, content: ArrayBuffer): Promise<boolean>
 }
 namespace filesystem {
 export class ReadDirOptions {
@@ -86,6 +133,91 @@ export class MkDirOptions {
 namespace filesystem {
 export class RmOptions {
 	recursive: boolean
+}
+}
+export class http {
+	/**
+     *  Fetch a URL and return a Response
+     * @param url: string
+     * @param init: http.RequestInit | undefined
+     * @returns Promise<Response>
+     */
+    static fetch(url: string, init?: http.RequestInit | undefined): Promise<Response>
+}
+namespace http {
+export class Headers {
+	list: Array<[string, string]>
+	/**
+     * 
+     * @param name: string
+     * @returns string
+     */
+    get(name: string): string
+	/**
+     * 
+     * @param name: string
+     * @param value: string
+     * @returns void
+     */
+    set(name: string, value: string): void
+	/**
+     * 
+     * @param name: string
+     * @returns boolean
+     */
+    has(name: string): boolean
+	/**
+     * 
+     * @param name: string
+     * @param value: string
+     * @returns void
+     */
+    append(name: string, value: string): void
+	/**
+     *  Note: named 'remove_' to avoid conflict with C macro 'remove'
+     * @param name: string
+     * @returns void
+     */
+    remove_(name: string): void
+}
+}
+namespace http {
+export class Response {
+	get status(): number;
+	get statusText(): string;
+	get ok(): boolean;
+	get url(): string;
+	get headers(): http.Headers;
+	/**
+     *  Returns body decoded as UTF-8 string
+      @returns string
+     */
+    text(): string
+	/**
+     *  Returns body as ArrayBuffer
+      @returns ArrayBuffer
+     */
+    arrayBuffer(): ArrayBuffer
+	/**
+     *  Returns body as JSON string (caller can JSON.parse on JS side)
+      @returns string
+     */
+    json_text(): string
+	json(): any
+	blob(): Blob
+}
+}
+namespace http {
+export class RequestInit {
+	method: string
+	/**
+     *  body can be a string or an ArrayBuffer (binary data)
+     */
+    body?: string | ArrayBuffer | Blob | undefined
+	/**
+     *  headers: accepts plain object {key: value}
+     */
+    headers?: std.map<string, string> | undefined
 }
 }
 export class infra {

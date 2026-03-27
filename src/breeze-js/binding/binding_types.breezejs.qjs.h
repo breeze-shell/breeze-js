@@ -10,6 +10,32 @@ struct js_bind {
     static void bind(qjs::Context::Module &mod) {}
 };
 
+template <> struct qjs::js_traits<breeze::js::Blob> {
+    static breeze::js::Blob unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::Blob obj;
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::Blob &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::Blob> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::Blob>("Blob")
+            .constructor<>()
+                .property<&breeze::js::Blob::get_size>("size")
+                .property<&breeze::js::Blob::get_type>("type")
+                .fun<&breeze::js::Blob::arrayBuffer>("arrayBuffer")
+                .fun<&breeze::js::Blob::text>("text")
+                .fun<&breeze::js::Blob::slice>("slice")
+            ;
+    }
+};
+
 template <> struct qjs::js_traits<breeze::js::filesystem> {
     static breeze::js::filesystem unwrap(JSContext *ctx, JSValueConst v) {
         breeze::js::filesystem obj;
@@ -37,6 +63,9 @@ template<> struct js_bind<breeze::js::filesystem> {
                 .static_fun<&breeze::js::filesystem::rm>("rm")
                 .static_fun<&breeze::js::filesystem::rmSync>("rmSync")
                 .static_fun<&breeze::js::filesystem::writeStringToFile>("writeStringToFile")
+                .static_fun<&breeze::js::filesystem::readFileSync>("readFileSync")
+                .static_fun<&breeze::js::filesystem::readFile>("readFile")
+                .static_fun<&breeze::js::filesystem::writeFile>("writeFile")
             ;
     }
 };
@@ -120,6 +149,126 @@ template<> struct js_bind<breeze::js::filesystem::RmOptions> {
         mod.class_<breeze::js::filesystem::RmOptions>("filesystem::RmOptions")
             .constructor<>()
                 .fun<&breeze::js::filesystem::RmOptions::recursive>("recursive")
+            ;
+    }
+};
+
+template <> struct qjs::js_traits<breeze::js::http> {
+    static breeze::js::http unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::http obj;
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::http &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::http> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::http>("http")
+            .constructor<>()
+                .static_fun<&breeze::js::http::fetch>("fetch")
+            ;
+    }
+};
+
+template <> struct qjs::js_traits<breeze::js::http::Headers> {
+    static breeze::js::http::Headers unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::http::Headers obj;
+
+        obj.list = js_traits<std::vector<std::pair<std::string, std::string>>>::unwrap(ctx, JS_GetPropertyStr(ctx, v, "list"));
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::http::Headers &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        JS_SetPropertyStr(ctx, obj, "list", js_traits<std::vector<std::pair<std::string, std::string>>>::wrap(ctx, val.list));
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::http::Headers> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::http::Headers>("http::Headers")
+            .constructor<>()
+                .fun<&breeze::js::http::Headers::get>("get")
+                .fun<&breeze::js::http::Headers::set>("set")
+                .fun<&breeze::js::http::Headers::has>("has")
+                .fun<&breeze::js::http::Headers::append>("append")
+                .fun<&breeze::js::http::Headers::remove_>("remove_")
+                .fun<&breeze::js::http::Headers::list>("list")
+            ;
+    }
+};
+
+template <> struct qjs::js_traits<breeze::js::http::Response> {
+    static breeze::js::http::Response unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::http::Response obj;
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::http::Response &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::http::Response> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::http::Response>("http::Response")
+            .constructor<>()
+                .property<&breeze::js::http::Response::get_status>("status")
+                .property<&breeze::js::http::Response::get_statusText>("statusText")
+                .property<&breeze::js::http::Response::get_ok>("ok")
+                .property<&breeze::js::http::Response::get_url>("url")
+                .property<&breeze::js::http::Response::get_headers>("headers")
+                .fun<&breeze::js::http::Response::text>("text")
+                .fun<&breeze::js::http::Response::arrayBuffer>("arrayBuffer")
+                .fun<&breeze::js::http::Response::json_text>("json_text")
+                .fun<&breeze::js::http::Response::json>("json")
+                .fun<&breeze::js::http::Response::blob>("blob")
+            ;
+    }
+};
+
+template <> struct qjs::js_traits<breeze::js::http::RequestInit> {
+    static breeze::js::http::RequestInit unwrap(JSContext *ctx, JSValueConst v) {
+        breeze::js::http::RequestInit obj;
+
+        obj.method = js_traits<std::string>::unwrap(ctx, JS_GetPropertyStr(ctx, v, "method"));
+
+        obj.body = js_traits<std::optional<std::variant<std::string, std::vector<uint8_t>, std::shared_ptr<breeze::js::Blob>>>>::unwrap(ctx, JS_GetPropertyStr(ctx, v, "body"));
+
+        obj.headers = js_traits<std::optional<std::map<std::string, std::string>>>::unwrap(ctx, JS_GetPropertyStr(ctx, v, "headers"));
+
+        return obj;
+    }
+
+    static JSValue wrap(JSContext *ctx, const breeze::js::http::RequestInit &val) noexcept {
+        JSValue obj = JS_NewObject(ctx);
+
+        JS_SetPropertyStr(ctx, obj, "method", js_traits<std::string>::wrap(ctx, val.method));
+
+        JS_SetPropertyStr(ctx, obj, "body", js_traits<std::optional<std::variant<std::string, std::vector<uint8_t>, std::shared_ptr<breeze::js::Blob>>>>::wrap(ctx, val.body));
+
+        JS_SetPropertyStr(ctx, obj, "headers", js_traits<std::optional<std::map<std::string, std::string>>>::wrap(ctx, val.headers));
+
+        return obj;
+    }
+};
+template<> struct js_bind<breeze::js::http::RequestInit> {
+    static void bind(qjs::Context::Module &mod) {
+        mod.class_<breeze::js::http::RequestInit>("http::RequestInit")
+            .constructor<>()
+                .fun<&breeze::js::http::RequestInit::method>("method")
+                .fun<&breeze::js::http::RequestInit::body>("body")
+                .fun<&breeze::js::http::RequestInit::headers>("headers")
             ;
     }
 };
@@ -218,28 +367,7 @@ template<> struct js_bind<breeze::js::infra::URL> {
                 .property<&breeze::js::infra::URL::get_hash, &breeze::js::infra::URL::set_hash>("hash")
                 .static_fun<&breeze::js::infra::URL::parse>("parse")
                 .static_fun<&breeze::js::infra::URL::canParse>("canParse")
-                .fun<&breeze::js::infra::URL::get_href>("get_href")
-                .fun<&breeze::js::infra::URL::set_href>("set_href")
                 .fun<&breeze::js::infra::URL::origin>("origin")
-                .fun<&breeze::js::infra::URL::get_protocol>("get_protocol")
-                .fun<&breeze::js::infra::URL::set_protocol>("set_protocol")
-                .fun<&breeze::js::infra::URL::get_username>("get_username")
-                .fun<&breeze::js::infra::URL::set_username>("set_username")
-                .fun<&breeze::js::infra::URL::get_password>("get_password")
-                .fun<&breeze::js::infra::URL::set_password>("set_password")
-                .fun<&breeze::js::infra::URL::get_host>("get_host")
-                .fun<&breeze::js::infra::URL::set_host>("set_host")
-                .fun<&breeze::js::infra::URL::get_hostname>("get_hostname")
-                .fun<&breeze::js::infra::URL::set_hostname>("set_hostname")
-                .fun<&breeze::js::infra::URL::get_port>("get_port")
-                .fun<&breeze::js::infra::URL::set_port>("set_port")
-                .fun<&breeze::js::infra::URL::get_pathname>("get_pathname")
-                .fun<&breeze::js::infra::URL::set_pathname>("set_pathname")
-                .fun<&breeze::js::infra::URL::get_search>("get_search")
-                .fun<&breeze::js::infra::URL::set_search>("set_search")
-                .fun<&breeze::js::infra::URL::get_searchParams>("get_searchParams")
-                .fun<&breeze::js::infra::URL::get_hash>("get_hash")
-                .fun<&breeze::js::infra::URL::set_hash>("set_hash")
                 .fun<&breeze::js::infra::URL::toJSON>("toJSON")
             ;
     }
@@ -267,7 +395,9 @@ template<> struct js_bind<breeze::js::test> {
     }
 };
 
-inline void bindAll(qjs::Context::Module &mod) {
+inline void breeze_bindAll(qjs::Context::Module &mod) {
+
+    js_bind<breeze::js::Blob>::bind(mod);
 
     js_bind<breeze::js::filesystem>::bind(mod);
 
@@ -276,6 +406,14 @@ inline void bindAll(qjs::Context::Module &mod) {
     js_bind<breeze::js::filesystem::MkDirOptions>::bind(mod);
 
     js_bind<breeze::js::filesystem::RmOptions>::bind(mod);
+
+    js_bind<breeze::js::http>::bind(mod);
+
+    js_bind<breeze::js::http::Headers>::bind(mod);
+
+    js_bind<breeze::js::http::Response>::bind(mod);
+
+    js_bind<breeze::js::http::RequestInit>::bind(mod);
 
     js_bind<breeze::js::infra>::bind(mod);
 

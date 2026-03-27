@@ -71,7 +71,7 @@ void script_context::bind() {
 
   module.function("println", println);
 
-  bindAll(module);
+  breeze_bindAll(module);
 
   auto g = js->global();
   g["console"] = js->newObject();
@@ -99,6 +99,10 @@ globalThis.btoa = breeze.infra.btoa;
 globalThis.URL = breeze.infra.URL;
 globalThis.URLSearchParams = breeze.infra.URLSearchParams;
 
+globalThis.fetch = breeze.http.fetch;
+globalThis.Blob = breeze.Blob;
+globalThis.Headers = breeze.http.Headers;
+globalThis.Response = breeze.http.Response;
 
     )");
 

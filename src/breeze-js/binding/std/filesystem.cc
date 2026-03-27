@@ -141,4 +141,75 @@ async_simple::coro::Lazy<bool>
 filesystem::rm(std::string path, std::optional<RmOptions> options) {
   co_return rmSync(path, options);
 }
+
+std::vector<uint8_t> filesystem::readFileSync(std::string path) {
+  std::ifstream file(path, std::ios::in | std::ios::binary);
+  if (!file.is_open()) {
+    throw std::runtime_error("Error opening file: " + path);
+  }
+  return std::vector<uint8_t>((std::istreambuf_iterator<char>(file)),
+                              std::istreambuf_iterator<char>());
+}
+
+async_simple::coro::Lazy<std::vector<uint8_t>>
+filesystem::readFile(std::string path) {
+  coro_io::coro_file file(path, std::ios::in | std::ios::binary);
+  if (!file.is_open()) {
+    throw std::runtime_error("Error opening file: " + path);
+  }
+
+  auto size = file.file_size();
+  if (size == 0) {
+    co_return std::vector<uint8_t>{};
+  }
+
+  std::vector<uint8_t> content(size);
+  auto [ec, read_size] =
+      co_await file.async_read(reinterpret_cast<char *>(content.data()), size);
+  if (ec) {
+    throw std::runtime_error("Error reading file: " + path + " - " +
+                             ec.message());
+  }
+  if (read_size != size) {
+    throw std::runtime_error("Error reading file: " + path +
+                             " - Expected size: " + std::to_string(size) +
+                             ", Read size: " + std::to_string(read_size));
+  }
+
+  co_return content;
+}
+
+async_simple::coro::Lazy<bool>
+filesystem::writeFile(std::string path, std::vector<uint8_t> content) {
+  if (!std::filesystem::exists(path)) {
+    std::filesystem::create_directories(
+        std::filesystem::path(path).parent_path());
+    std::ofstream file(path, std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+      throw std::runtime_error("Error creating file: " + path);
+    }
+    file.close();
+  }
+  coro_io::coro_file file(path, std::ios::out | std::ios::binary);
+  if (!file.is_open()) {
+    throw std::runtime_error("Error opening file for writing: " + path);
+  }
+
+  auto [ec, write_size] = co_await file.async_write(std::string_view(
+      reinterpret_cast<const char *>(content.data()), content.size()));
+
+  if (ec) {
+    throw std::runtime_error("Error writing to file: " + path + " - " +
+                             ec.message());
+  }
+  if (write_size != content.size()) {
+    throw std::runtime_error(
+        "Error writing to file: " + path +
+        " - Expected size: " + std::to_string(content.size()) +
+        ", Written size: " + std::to_string(write_size));
+  }
+
+  co_return true;
+}
+
 } // namespace breeze::js
