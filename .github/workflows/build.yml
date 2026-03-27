@@ -35,8 +35,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libstdc++-14-dev clang-19
-          sudo ln -s /usr/bin/clang-19 /usr/bin/clang
-          sudo ln -s /usr/bin/clang++-19 /usr/bin/clang++
           
           xmake f -y --toolchain=clang
 
