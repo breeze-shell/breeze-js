@@ -35,10 +35,10 @@ jobs:
         run: |
           sudo apt-get update
           # use newer version of g++ and libstdc++
-          sudo apt-get install -y g++-15 libstdc++-15-dev
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100
-          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/c++-15 100
+          sudo apt-get install -y g++-14 libstdc++-14-dev
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/c++-14 100
 
           xmake f -y
 
