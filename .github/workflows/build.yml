@@ -39,7 +39,7 @@ jobs:
       - name: Configure
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
-          xmake f --cc="zig cc" --cxx="zig cc" --ld="zig c++" -c -y
+          xmake f -c -y --toolchain=zig
 
       - name: Configure
         if: ${{ matrix.os != 'ubuntu-latest' }}
