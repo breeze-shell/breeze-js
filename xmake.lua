@@ -1,7 +1,7 @@
 set_project("breeze-js")
 set_policy("compatibility.version", "3.0")
 
-set_languages("cxx23", "c23")
+set_languages("cxx23", "c89")
 set_warnings("all") 
 add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
