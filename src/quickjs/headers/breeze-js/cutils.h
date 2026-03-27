@@ -47,6 +47,11 @@ extern "C" {
 #include <alloca.h>
 #include <time.h>
 #include <pthread.h>
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 1
+#endif
+extern int clock_gettime(clockid_t clk_id, struct timespec *tp);
+extern int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id);
 #elif defined(__FreeBSD__)
 #include <malloc_np.h>
 #elif defined(_WIN32)
