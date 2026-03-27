@@ -30,16 +30,17 @@ jobs:
         with:
           node-version: 20
 
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        with:
-          version: master 
-
       - name: Configure
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
-          xmake f -c -y --toolchain=zig
+          sudo apt-get update
+          # use newer version of g++ and libstdc++
+          sudo apt-get install -y g++-15 libstdc++-15-dev
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/c++-15 100
+
+          xmake f -y
 
       - name: Configure
         if: ${{ matrix.os != 'ubuntu-latest' }}
