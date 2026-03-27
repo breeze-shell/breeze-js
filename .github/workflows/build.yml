@@ -31,7 +31,19 @@ jobs:
           node-version: 20
 
       - name: Configure
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: |
+          # we must use libstdcxx >= 13 and clang >=18 for the latest C++ standard
+          sudo apt-get update
+          sudo apt-get install -y libstdc++-13-dev clang-21
+          sudo ln -s /usr/bin/clang-21 /usr/bin/clang
+          sudo ln -s /usr/bin/clang++-21 /usr/bin/clang++
+          
+          xmake f -y --toolchain=clang
+
+      - name: Configure
+        if: ${{ matrix.os != 'ubuntu-latest' }}
         run: xmake f -y
 
       - name: Build
-        run: xmake build -y
+        run: xmake build -y -v
