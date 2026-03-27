@@ -34,9 +34,9 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y libstdc++-14-dev clang-19
+          sudo apt-get install -y zig
           
-          xmake f -y --toolchain=clang
+          xmake f -y --toolchain=zig
 
       - name: Configure
         if: ${{ matrix.os != 'ubuntu-latest' }}
