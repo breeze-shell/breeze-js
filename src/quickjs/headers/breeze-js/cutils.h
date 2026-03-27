@@ -45,6 +45,8 @@ extern "C" {
 #elif defined(__linux__) || defined(__ANDROID__) || defined(__CYGWIN__)
 #include <malloc.h>
 #include <alloca.h>
+#include <time.h>
+#include <pthread.h>
 #elif defined(__FreeBSD__)
 #include <malloc_np.h>
 #elif defined(_WIN32)
