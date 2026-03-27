@@ -31,7 +31,7 @@ jobs:
           node-version: 20
 
       - name: Setup Zig
-        uses: mlugg/setup-zig@v1
+        uses: mlugg/setup-zig@v2
         if: ${{ matrix.os == 'ubuntu-latest' }}
         with:
           version: master 
