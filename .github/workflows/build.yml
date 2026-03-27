@@ -38,8 +38,6 @@ jobs:
           sudo apt-get install -y g++-14 libstdc++-14-dev
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
-          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/c++-14 100
-
           xmake f -y
 
       - name: Configure
