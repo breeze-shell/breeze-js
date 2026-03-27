@@ -1,6 +1,5 @@
 #include "breeze-js/quickjspp.hpp"
 #include "breeze-js/script.h"
-#include <print>
 #if defined(_WIN32) || defined(_WIN64)
 #include "Windows.h"
 #elif defined(__linux__) || defined(__APPLE__)

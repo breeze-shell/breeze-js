@@ -4,7 +4,6 @@
 #include "breeze-js/quickjspp.hpp"
 #include <filesystem>
 #include <iostream>
-#include <print>
 
 namespace breeze::js {
 
