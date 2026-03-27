@@ -30,12 +30,15 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v1
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        with:
+          version: master 
+
       - name: Configure
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y zig
-          
           xmake f -y --toolchain=zig
 
       - name: Configure
