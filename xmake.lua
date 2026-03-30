@@ -8,23 +8,11 @@ add_rules("mode.releasedbg")
 
 add_requires("cxxopts", "ctre", "concurrentqueue")
 
-add_requires("yalantinglibs 0c98464dd202aaa6275a8da3297719a436b8a51a", {
+includes("deps/yalantinglibs.lua")
+add_requires("yalantinglibs", {
     configs = {
         ssl = true
     }
-})
-
-add_requireconfs("**.cinatra", {
-    override = true,
-    version = "e329293f6705649a6f1e8847ec845a7631179bb8",
-    configs = {
-        ssl = true
-    }
-})
-
-add_requireconfs("**.async_simple", {
-    override = true,
-    version = "18f3882be354d407af0f0674121dcddaeff36e26"
 })
 
 includes("bindgen.lua")
