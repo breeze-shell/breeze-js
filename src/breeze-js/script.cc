@@ -43,12 +43,12 @@ std::string wstring_to_utf8(const std::wstring &wstr) {
 
 void dbgout(const std::string &msg) {
   auto ws = utf8_to_wstring(msg);
-  #ifdef _WIN32
+#ifdef _WIN32
   WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), ws.c_str(), ws.size(), nullptr,
                 nullptr);
-  #else
+#else
   std::cout << msg << std::endl;
-  #endif
+#endif
 }
 
 void println(qjs::rest<std::string> args) {
@@ -58,12 +58,12 @@ void println(qjs::rest<std::string> args) {
   }
   ss << std::endl;
   auto ws = utf8_to_wstring(ss.str());
-  #ifdef _WIN32
+#ifdef _WIN32
   WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), ws.c_str(), ws.size(), nullptr,
                 nullptr);
-  #else
+#else
   std::cout << ss.str() << std::endl;
-  #endif
+#endif
 }
 
 void script_context::bind() {
@@ -129,19 +129,53 @@ bool script_context::is_js_thread() const {
   return std::this_thread::get_id() == js_thread_id_;
 }
 
-void script_context::reset_runtime() {
-  *stop_signal = true;
-  task_queue_cv.notify_all();
-  stop_signal = std::make_shared<int>(false);
+void script_context::run_event_loop() {
+  while (!stop_signal) {
+    // Drain all pending tasks
+    std::function<void()> task;
+    while (!stop_signal && task_queue.try_dequeue(task)) {
+      task_queue_size.fetch_sub(1, std::memory_order_relaxed);
+      task();
+    }
 
+    if (stop_signal)
+      break;
+
+    // If a shutdown deadline is set and the queue is now empty, we're done
+    if (shutdown_deadline &&
+        task_queue_size.load(std::memory_order_acquire) == 0)
+      break;
+
+    // Wait for new tasks, stop signal, or shutdown deadline
+    std::unique_lock lock(cv_mutex);
+    auto pred = [&]() {
+      return task_queue_size.load(std::memory_order_acquire) > 0 || stop_signal;
+    };
+    if (shutdown_deadline)
+      task_queue_cv.wait_until(lock, *shutdown_deadline, pred);
+    else
+      task_queue_cv.wait(lock, pred);
+
+    // After deadline wait, if queue is still empty, time's up
+    if (shutdown_deadline &&
+        task_queue_size.load(std::memory_order_acquire) == 0)
+      break;
+  }
+}
+
+void script_context::reset_runtime() {
+  stop_signal = true;
+  task_queue_cv.notify_all();
   if (js_thread)
     js_thread->join();
+
+  stop_signal = false;
 
   std::promise<void> p_finished;
 
   auto future = p_finished.get_future();
 
-  js_thread = std::thread([&, this, ss = stop_signal]() {
+  js_thread = std::thread([&, this]() {
     js_thread_id_ = std::this_thread::get_id();
 
     rt = std::make_shared<qjs::Runtime>();
@@ -166,22 +200,7 @@ void script_context::reset_runtime() {
 
     p_finished.set_value();
 
-    while (!*ss) {
-      // Drain all pending tasks (JS jobs + C++ tasks via JS_ExecutePendingJob)
-      JSContext *ctx1;
-      while (JS_ExecutePendingJob(rt->rt, &ctx1) > 0 && !*ss) {
-        // keep draining
-      }
-
-      if (*ss)
-        break;
-
-      // Wait for new tasks or stop signal
-      std::unique_lock lock(cv_mutex);
-      task_queue_cv.wait(lock, [&]() {
-        return task_queue_size.load(std::memory_order_acquire) > 0 || *ss;
-      });
-    }
+    run_event_loop();
   });
 
   future.wait();
@@ -206,7 +225,7 @@ script_context::eval_file(const std::filesystem::path &path) {
 
 std::expected<qjs::Value, std::string>
 script_context::eval_string_impl(const std::string &script,
-                            std::string_view filename) {
+                                 std::string_view filename) {
   try {
     JS_UpdateStackTop(rt->rt);
     auto func = JS_Eval(js->ctx, script.c_str(), script.size(), filename.data(),
@@ -321,18 +340,15 @@ std::string script_context::current_exception_string() {
   return "No exception occurred";
 }
 script_context::~script_context() {
+  stop_event_loop_in_time(std::chrono::milliseconds(100));
+}
+void script_context::stop_event_loop_in_time(
+    std::chrono::milliseconds timeout) {
+  shutdown_deadline = std::chrono::steady_clock::now() + timeout;
+  stop_signal = true;
+  task_queue_cv.notify_all();
   if (js_thread && js_thread->joinable()) {
-    *stop_signal = true;
-    task_queue_cv.notify_all();
     js_thread->join();
-  }
-  // Drain any remaining tasks that were posted after the JS thread stopped
-  // (e.g., Value destructors posting JS_FreeValue from other threads).
-  // We run them here on the current thread since the JS thread is gone
-  // and we're about to destroy the runtime anyway.
-  std::function<void()> task;
-  while (task_queue.try_dequeue(task)) {
-    task();
   }
 }
 } // namespace breeze

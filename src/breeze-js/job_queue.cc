@@ -38,23 +38,4 @@ JS_BOOL JS_IsJobPending(JSRuntime *rt) {
   return sctx->task_queue_size.load(std::memory_order_relaxed) > 0;
 }
 
-int JS_ExecutePendingJob(JSRuntime *rt, JSContext **pctx) {
-  auto *sctx =
-      static_cast<breeze::script_context *>(JS_GetRuntimeOpaque(rt));
-  if (!sctx) {
-    *pctx = nullptr;
-    return 0;
-  }
-
-  std::function<void()> task;
-  if (!sctx->task_queue.try_dequeue(task)) {
-    *pctx = nullptr;
-    return 0;
-  }
-  sctx->task_queue_size.fetch_sub(1, std::memory_order_relaxed);
-  task();
-  *pctx = sctx->js ? sctx->js->ctx : nullptr;
-  return 1;
-}
-
 } // extern "C"

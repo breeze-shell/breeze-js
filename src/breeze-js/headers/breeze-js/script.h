@@ -1,5 +1,5 @@
 #pragma once
-#include "quickjspp.hpp"
+#include "./quickjspp.hpp"
 #include <atomic>
 #include <chrono>
 #include <concurrentqueue.h>
@@ -20,7 +20,7 @@ namespace breeze {
 struct script_context {
   std::shared_ptr<qjs::Runtime> rt;
   std::shared_ptr<qjs::Context> js;
-  std::shared_ptr<int> stop_signal = std::make_shared<int>(0);
+  std::atomic<int> stop_signal{0};
   std::optional<std::thread> js_thread;
   std::filesystem::path module_base;
 
@@ -48,6 +48,11 @@ struct script_context {
 
   void post(std::function<void()> task);
   bool is_js_thread() const;
+  void run_event_loop();
+  void stop_event_loop_in_time(std::chrono::milliseconds timeout);
+
+  // Set before signalling stop to give the JS thread a grace period to drain.
+  std::optional<std::chrono::steady_clock::time_point> shutdown_deadline;
 
   template <typename F>
   auto post_sync(F &&f) -> decltype(f()) {
