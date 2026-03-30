@@ -70,7 +70,13 @@ target("cli")
     add_deps("breeze-js-runtime")
     add_packages("cxxopts")
     add_files("src/breeze-js-cli/*.cc")
-    
+    -- On Linux, quickjs.a references JS_EnqueueJob which is defined in
+    -- breeze-js-runtime.a, creating a circular static lib dependency.
+    -- add_linkgroups wraps them in --start-group/--end-group so ld re-scans.
+    if is_plat("linux", "bsd", "cross") then
+        add_linkgroups("breeze-js-runtime", "breeze-quickjs-ng", {group = true})
+    end
+
     if is_plat("windows") then
         add_syslinks("ws2_32", "user32", "shell32")
     end
