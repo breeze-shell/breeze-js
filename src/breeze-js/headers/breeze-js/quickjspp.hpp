@@ -2165,6 +2165,39 @@ public:
         return *this;
       }
 
+      /** Add a static property (getter only or getter+setter) to the last added
+       * constructor. The getter/setter must be free functions or static member
+       * functions taking no C++ arguments (the JS "this" is not passed).
+       * Example:
+       *   struct T { static int getX(); static void setX(int); };
+       *   module.class_<T>("T").constructor<>("T")
+       *         .static_property<&T::getX>("x");
+       *   module.class_<T>("T").constructor<>("T")
+       *         .static_property<&T::getX, &T::setX>("x");
+       */
+      template <auto FGet, auto FSet = nullptr>
+      class_registrar &static_property(const char *name) {
+        assert(!JS_IsNull(ctor.v) &&
+               "You should call .constructor before .static_property");
+        auto prop = JS_NewAtom(context.ctx, name);
+        using fgetter = fwrapper<FGet, false>;
+        JSValue getter_val = js_traits<fgetter>::wrap(context.ctx, fgetter{name});
+        JSValue setter_val;
+        if constexpr (std::is_same_v<decltype(FSet), std::nullptr_t>) {
+          setter_val = JS_UNDEFINED;
+        } else {
+          using fsetter = fwrapper<FSet, false>;
+          setter_val = js_traits<fsetter>::wrap(context.ctx, fsetter{name});
+        }
+        int ret = JS_DefinePropertyGetSet(
+            context.ctx, ctor.v, prop, getter_val, setter_val,
+            JS_PROP_CONFIGURABLE | JS_PROP_ENUMERABLE);
+        JS_FreeAtom(context.ctx, prop);
+        if (ret < 0)
+          throw exception{context.ctx};
+        return *this;
+      }
+
       /** Add class constructor
        * @tparam Args contructor arguments
        * @param name constructor name (if not specified class name will be used)
