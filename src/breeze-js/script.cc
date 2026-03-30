@@ -130,16 +130,15 @@ bool script_context::is_js_thread() const {
 }
 
 void script_context::run_event_loop() {
-  while (!stop_signal) {
+  while (true) {
     // Drain all pending tasks
     std::function<void()> task;
-    while (!stop_signal && task_queue.try_dequeue(task)) {
+    while (task_queue.try_dequeue(task) &&
+           (!shutdown_deadline ||
+            std::chrono::steady_clock::now() < *shutdown_deadline)) {
       task_queue_size.fetch_sub(1, std::memory_order_relaxed);
       task();
     }
-
-    if (stop_signal)
-      break;
 
     // If a shutdown deadline is set and the queue is now empty, we're done
     if (shutdown_deadline &&
@@ -149,28 +148,19 @@ void script_context::run_event_loop() {
     // Wait for new tasks, stop signal, or shutdown deadline
     std::unique_lock lock(cv_mutex);
     auto pred = [&]() {
-      return task_queue_size.load(std::memory_order_acquire) > 0 || stop_signal;
+      return task_queue_size.load(std::memory_order_acquire) > 0 ||
+             shutdown_deadline;
     };
-    if (shutdown_deadline)
-      task_queue_cv.wait_until(lock, *shutdown_deadline, pred);
-    else
-      task_queue_cv.wait(lock, pred);
-
-    // After deadline wait, if queue is still empty, time's up
-    if (shutdown_deadline &&
-        task_queue_size.load(std::memory_order_acquire) == 0)
-      break;
+    task_queue_cv.wait(lock, pred);
   }
 }
 
 void script_context::reset_runtime() {
-  stop_signal = true;
+  shutdown_deadline = std::chrono::steady_clock::now();
   task_queue_cv.notify_all();
-  if (js_thread)
+  if (js_thread && js_thread->joinable())
     js_thread->join();
-
-  stop_signal = false;
-
+  shutdown_deadline = std::nullopt;
   std::promise<void> p_finished;
 
   auto future = p_finished.get_future();
@@ -345,7 +335,6 @@ script_context::~script_context() {
 void script_context::stop_event_loop_in_time(
     std::chrono::milliseconds timeout) {
   shutdown_deadline = std::chrono::steady_clock::now() + timeout;
-  stop_signal = true;
   task_queue_cv.notify_all();
   if (js_thread && js_thread->joinable()) {
     js_thread->join();

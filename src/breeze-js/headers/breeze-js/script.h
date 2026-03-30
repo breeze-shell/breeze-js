@@ -20,7 +20,6 @@ namespace breeze {
 struct script_context {
   std::shared_ptr<qjs::Runtime> rt;
   std::shared_ptr<qjs::Context> js;
-  std::atomic<int> stop_signal{0};
   std::optional<std::thread> js_thread;
   std::filesystem::path module_base;
 
