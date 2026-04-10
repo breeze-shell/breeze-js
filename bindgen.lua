@@ -4,7 +4,7 @@ on_load(function(target)
     import("lib.detect.find_tool")
     local bindgen = {
         program = target:is_plat("windows") and "npx.cmd" or "npx",
-        argv = { "breeze-bindgen@latest" }
+        argv = { "-y", "breeze-bindgen@latest" }
     }
     target:data_set("breeze_bindgen.tool", bindgen)
     local clang = find_tool("clang++") or find_tool("clang")
