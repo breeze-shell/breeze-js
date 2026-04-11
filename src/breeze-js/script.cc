@@ -19,6 +19,10 @@
 
 namespace breeze {
 
+namespace {
+constexpr std::size_t kJsThreadStackSizeBytes = 4 * 1024 * 1024;
+}
+
 std::wstring utf8_to_wstring(const std::string &str) {
   std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
   try {
@@ -126,7 +130,7 @@ void script_context::post(std::function<void()> task) {
 }
 
 bool script_context::is_js_thread() const {
-  return std::this_thread::get_id() == js_thread_id_;
+  return platform_thread::current_id() == js_thread_id_;
 }
 
 void script_context::run_event_loop() {
@@ -165,8 +169,8 @@ void script_context::reset_runtime() {
 
   auto future = p_finished.get_future();
 
-  js_thread = std::thread([&, this]() {
-    js_thread_id_ = std::this_thread::get_id();
+  js_thread = platform_thread([&, this]() {
+    js_thread_id_ = platform_thread::current_id();
 
     rt = std::make_shared<qjs::Runtime>();
     JS_UpdateStackTop(rt->rt);
@@ -191,7 +195,7 @@ void script_context::reset_runtime() {
     p_finished.set_value();
 
     run_event_loop();
-  });
+  }, kJsThreadStackSizeBytes);
 
   future.wait();
 }

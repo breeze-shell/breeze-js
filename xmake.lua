@@ -37,10 +37,10 @@ target("breeze-js-runtime")
     add_packages("yalantinglibs", { public = true })
     add_packages("ctre")
     add_packages("concurrentqueue", { public = true })
-    add_rules("breezejs.bindgen", {
-        name_filter = "breeze::js",
-        ts_module_name = "breeze",
-    })
+    -- add_rules("breezejs.bindgen", {
+    --     name_filter = "breeze::js",
+    --     ts_module_name = "breeze",
+    -- })
     add_files("src/breeze-js/*.cc", "src/breeze-js/**/*.cc")
     add_headerfiles("src/breeze-js/headers/(**.h)", "src/breeze-js/headers/(**.hpp)")
     add_includedirs("src/breeze-js/headers/", {public = true})

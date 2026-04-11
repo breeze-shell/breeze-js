@@ -1,4 +1,5 @@
 #pragma once
+#include "./platform_thread.h"
 #include "./quickjspp.hpp"
 #include <atomic>
 #include <chrono>
@@ -13,14 +14,13 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <thread>
 #include <vector>
 
 namespace breeze {
 struct script_context {
   std::shared_ptr<qjs::Runtime> rt;
   std::shared_ptr<qjs::Context> js;
-  std::optional<std::thread> js_thread;
+  std::optional<platform_thread> js_thread;
   std::filesystem::path module_base;
 
   // Lock-free task queue: all tasks (JS jobs + C++ tasks) go through here.
@@ -90,6 +90,6 @@ struct script_context {
 private:
   std::expected<qjs::Value, std::string>
   eval_string_impl(const std::string &script, std::string_view filename);
-  std::thread::id js_thread_id_;
+  platform_thread::id js_thread_id_;
 };
 } // namespace breeze
