@@ -6478,8 +6478,8 @@ JSValue JS_GetException(JSContext *ctx)
     JSValue val;
     JSRuntime *rt = ctx->rt;
     val = rt->current_exception;
-    rt->current_exception = JS_UNINITIALIZED;
-    return val;
+    // rt->current_exception = JS_UNINITIALIZED;
+    return js_dup(val);
 }
 
 JS_BOOL JS_HasException(JSContext *ctx)
