@@ -21,7 +21,12 @@ int JS_EnqueueJob(JSContext *ctx, JSJobFunc *job_func, int argc,
   for (int i = 0; i < argc; i++)
     args[i] = JS_DupValue(ctx, argv[i]);
 
-  sctx->post([ctx, job_func, args = std::move(args)]() mutable {
+  auto weak_ctx = qjs_ctx.weak_from_this();
+  sctx->post([weak_ctx, job_func, args = std::move(args)]() mutable {
+    auto locked = weak_ctx.lock();
+    if (!locked)
+      return;
+    JSContext *ctx = locked->ctx;
     JSValue res = job_func(ctx, (int)args.size(), args.data());
     for (auto &a : args)
       JS_FreeValue(ctx, a);
