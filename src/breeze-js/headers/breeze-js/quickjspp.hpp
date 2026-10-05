@@ -2424,9 +2424,10 @@ struct js_traits<std::function<R(Args...)>, int> {
     auto weak = Context::get(ctx).weak_from_this();
     return [jsfun_obj = Value{weakFromContext(ctx), JS_DupValue(ctx, fun_obj)},
             weak](Args... args) -> R {
-      if (weak.expired())
+      auto locked_ctx = weak.lock();
+      if (!locked_ctx)
         throw qjs_context_destroyed_exception{};
-      auto &ctx = Context::get(jsfun_obj.ctx);
+      auto &ctx = *locked_ctx;
 
       auto work = [&]() -> std::expected<JSValue, std::exception_ptr> {
         const int argc = sizeof...(Args);
@@ -2442,7 +2443,6 @@ struct js_traits<std::function<R(Args...)>, int> {
         }
         return result;
       };
-
       if (ctx.isOnJsThread()) {
         auto result = work();
         if (!result)
@@ -2453,6 +2453,12 @@ struct js_traits<std::function<R(Args...)>, int> {
       std::promise<std::expected<JSValue, std::exception_ptr>> promise;
       auto future = promise.get_future();
       ctx.postTask([&]() {
+        if (weak.expired()) {
+          promise.set_value(
+              std::unexpected(std::make_exception_ptr(
+                  qjs_context_destroyed_exception{})));
+          return;
+        }
         promise.set_value(work());
       });
       wait_with_msgloop([&future]() { future.wait(); });
