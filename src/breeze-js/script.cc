@@ -137,11 +137,20 @@ void script_context::run_event_loop() {
   while (true) {
     // Drain all pending tasks
     std::function<void()> task;
-    while (task_queue.try_dequeue(task) &&
-           (!shutdown_deadline ||
-            std::chrono::steady_clock::now() < *shutdown_deadline)) {
+    while (task_queue.try_dequeue(task)) {
       task_queue_size.fetch_sub(1, std::memory_order_relaxed);
-      task();
+      if (shutdown_deadline &&
+          !(std::chrono::steady_clock::now() < *shutdown_deadline)) {
+        continue;
+      }
+      try {
+        task();
+      } catch (const std::exception &e) {
+        std::cerr << "Unhandled exception in JS task: " << e.what()
+                  << std::endl;
+      } catch (...) {
+        std::cerr << "Unhandled non-std exception in JS task" << std::endl;
+      }
     }
 
     // If a shutdown deadline is set and the queue is now empty, we're done
