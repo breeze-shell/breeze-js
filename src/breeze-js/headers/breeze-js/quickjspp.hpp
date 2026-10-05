@@ -2256,12 +2256,22 @@ public:
   std::vector<Module> modules;
 
 private:
+  // keeps the runtime alive as long as any context reference exists
+  std::shared_ptr<Runtime> rt_owner;
+
   void init() {
     JS_SetContextOpaque(ctx, this);
     js_traits<detail::function>::register_class(ctx, "C++ function");
   }
 
 public:
+  Context(std::shared_ptr<Runtime> rt) : rt_owner(std::move(rt)) {
+    ctx = JS_NewContext(rt_owner->rt);
+    if (!ctx)
+      throw std::runtime_error{"qjs: Cannot create context"};
+    init();
+  }
+
   Context(Runtime &rt) : Context(rt.rt) {}
 
   Context(JSRuntime *rt) {
