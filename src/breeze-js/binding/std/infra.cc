@@ -2,8 +2,11 @@
 #include "async_simple/coro/Lazy.h"
 #include "async_simple/coro/Sleep.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <iomanip>
+#include <iostream>
+#include <mutex>
 #include <regex>
 #include <sstream>
 #include <thread>
@@ -24,7 +27,8 @@ void infra::sleepSync(int ms) {
 }
 
 struct Timer {
-  std::function<void()> callback;
+  // qjs::Value refcounts are not thread-safe: copy once, move afterwards
+  std::shared_ptr<std::function<void()>> callback;
   std::weak_ptr<qjs::Context> ctx;
   int delay;
   int elapsed = 0;
@@ -33,38 +37,44 @@ struct Timer {
 };
 
 std::list<std::unique_ptr<Timer>> timers;
+std::mutex timers_mutex;
 std::optional<std::thread> timer_thread;
+std::atomic_int next_timer_id{1};
 
 void timer_thread_func() {
   while (true) {
     constexpr auto sleep_time = 30;
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
 
-    std::vector<std::function<void()>> callbacks;
-    for (auto &timer : timers) {
-      if (!timer || timer->ctx.expired()) {
-        timer = nullptr;
-        continue;
-      }
-      timer->elapsed += sleep_time;
-      if (timer->elapsed >= timer->delay) {
-
-        bool repeat = timer->repeat;
-        timer->elapsed = 0;
-        callbacks.push_back(timer->callback);
-        if (!repeat) {
+    std::vector<std::shared_ptr<std::function<void()>>> callbacks;
+    {
+      std::lock_guard lock(timers_mutex);
+      for (auto &timer : timers) {
+        if (!timer || timer->ctx.expired()) {
           timer = nullptr;
+          continue;
+        }
+        timer->elapsed += sleep_time;
+        if (timer->elapsed >= timer->delay) {
+          bool repeat = timer->repeat;
+          timer->elapsed = 0;
+          callbacks.push_back(std::move(timer->callback));
+          if (!repeat) {
+            timer = nullptr;
+          }
         }
       }
+
+      timers.erase(std::remove_if(timers.begin(), timers.end(),
+                                  [](const auto &timer) { return !timer; }),
+                   timers.end());
     }
 
-    timers.erase(std::remove_if(timers.begin(), timers.end(),
-                                [](const auto &timer) { return !timer; }),
-                 timers.end());
-
     for (const auto &callback : callbacks) {
+      if (!callback)
+        continue;
       try {
-        callback();
+        (*callback)();
       } catch (std::exception &e) {
         std::cerr << "Error in timer callback: " << e.what() << std::endl;
       } catch (...) {
@@ -85,17 +95,20 @@ int infra::setTimeout(std::function<void()> callback, int delay) {
   ensure_timer_thread();
 
   auto timer = std::make_unique<Timer>();
-  timer->callback = callback;
+  timer->callback = std::make_shared<std::function<void()>>(std::move(callback));
   timer->delay = delay;
   timer->repeat = false;
   timer->ctx = qjs::Context::current->weak_from_this();
-  timer->id = timers.size() + 1;
-  auto id = timer->id;
-  timers.push_back(std::move(timer));
+  auto id = timer->id = next_timer_id++;
+  {
+    std::lock_guard lock(timers_mutex);
+    timers.push_back(std::move(timer));
+  }
 
   return id;
 };
 void infra::clearTimeout(int id) {
+  std::lock_guard lock(timers_mutex);
   if (auto it = std::find_if(
           timers.begin(), timers.end(),
           [id](const auto &timer) { return timer && timer->id == id; });
@@ -107,13 +120,15 @@ int infra::setInterval(std::function<void()> callback, int delay) {
   ensure_timer_thread();
 
   auto timer = std::make_unique<Timer>();
-  timer->callback = callback;
+  timer->callback = std::make_shared<std::function<void()>>(std::move(callback));
   timer->delay = delay;
   timer->repeat = true;
   timer->ctx = qjs::Context::current->weak_from_this();
-  timer->id = timers.size() + 1;
-  auto id = timer->id;
-  timers.push_back(std::move(timer));
+  auto id = timer->id = next_timer_id++;
+  {
+    std::lock_guard lock(timers_mutex);
+    timers.push_back(std::move(timer));
+  }
 
   return id;
 };
