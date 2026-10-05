@@ -172,11 +172,12 @@ void script_context::reset_runtime() {
   js_thread = platform_thread([&, this]() {
     js_thread_id_ = platform_thread::current_id();
 
+    js = nullptr;
     rt = std::make_shared<qjs::Runtime>();
     JS_UpdateStackTop(rt->rt);
     JS_SetRuntimeOpaque(rt->rt, this);
 
-    js = std::make_shared<qjs::Context>(*rt);
+    js = std::make_shared<qjs::Context>(rt);
     js->script_ctx = this;
 
     js->moduleLoader = [&](std::string_view module_name) {
