@@ -32,6 +32,10 @@
 #include <variant>
 #include <vector>
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <Windows.h>
+#endif
+
 #define ASYNC_SUPPORT
 #ifdef ASYNC_SUPPORT
 #include "async_simple/coro/Lazy.h"
@@ -2452,16 +2456,43 @@ struct js_traits<std::function<R(Args...)>, int> {
 
       std::promise<std::expected<JSValue, std::exception_ptr>> promise;
       auto future = promise.get_future();
+#if defined(_WIN32) || defined(_WIN64)
+      HANDLE wake_ev = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+#endif
       ctx.postTask([&]() {
         if (weak.expired()) {
           promise.set_value(
               std::unexpected(std::make_exception_ptr(
                   qjs_context_destroyed_exception{})));
-          return;
+        } else {
+          promise.set_value(work());
         }
-        promise.set_value(work());
+#if defined(_WIN32) || defined(_WIN64)
+        SetEvent(wake_ev);
+#endif
       });
-      wait_with_msgloop([&future]() { future.wait(); });
+#if defined(_WIN32) || defined(_WIN64)
+      // Wait for the JS task while still pumping messages (deadlock-safety).
+      // A helper thread per call is avoided: inside explorer.exe every loaded
+      // shell extension runs DLL_THREAD_ATTACH/DETACH on thread create/join,
+      // which otherwise dominates the call latency.
+      while (true) {
+        DWORD wr = MsgWaitForMultipleObjects(1, &wake_ev, FALSE, INFINITE,
+                                             QS_ALLINPUT);
+        if (wr == WAIT_OBJECT_0)
+          break;
+        if (wr != WAIT_OBJECT_0 + 1)
+          break;
+        MSG msg;
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+          TranslateMessage(&msg);
+          DispatchMessageW(&msg);
+        }
+      }
+      CloseHandle(wake_ev);
+#else
+      future.wait();
+#endif
       auto result = future.get();
       if (!result)
         std::rethrow_exception(result.error());
